@@ -2,7 +2,15 @@
 
 **Reference:** RFP-001, scope frozen in [SOW.md](../SOW.md)
 
-**Editable source:** [arquitectura-aws.drawio](./arquitectura-aws.drawio) — open at [app.diagrams.net](https://app.diagrams.net) (File → Open From → Device) or with the draw.io VS Code extension. The Mermaid diagram below is a GitHub-native preview of the same architecture and is kept in sync with it.
+**Editable source:** [arquitectura-aws.drawio](./arquitectura-aws.drawio) — open at [app.diagrams.net](https://app.diagrams.net) (File → Open From → Device) or with the draw.io VS Code extension. The image below is a rendered snapshot of that file; regenerate it after editing the diagram so the two stay in sync.
+
+## Tech stack
+
+| Layer | Technology | Notes |
+|---|---|---|
+| Frontend | **Next.js** | Static-exported SPA served from S3 behind CloudFront (no Node.js server to run) — fits the "no dedicated IT team" and "common browsers, no install" constraints (issue [#25](https://github.com/ngonza27/trayectoria_dllo_software/issues/25)) |
+| Backend | **FastAPI** (Python) | Each `fresh-fork-<domain>-fn` Lambda runs a small FastAPI app wrapped with Mangum (ASGI-to-Lambda adapter); gives every service typed request/response models and OpenAPI docs for free |
+| Database | **PostgreSQL** (Amazon RDS) | Relational integrity and the `EXCLUDE` constraint needed for DB-level double-booking prevention (issue [#12](https://github.com/ngonza27/trayectoria_dllo_software/issues/12)) — see [modelo-datos.md](./modelo-datos.md) |
 
 ## Design constraints driving the choices below
 
@@ -17,71 +25,25 @@ Given this, a **serverless microservices** architecture is the simple-yet-effici
 
 ## Diagram
 
-```mermaid
-graph TB
-    Staff["👤 Staff\n(host, manager, owner)"]
+![AWS architecture diagram: staff reach a Next.js SPA on CloudFront/S3, which calls a WAF-fronted API Gateway; API Gateway authorizes against Cognito and invokes seven fresh-fork-*-fn Lambdas (FastAPI + Mangum); the Reservation function calls the Table & Schedule and Customer functions synchronously and publishes domain events to EventBridge, which fans out to the Audit function and, via SQS, the Notification function (which sends email through SES); all data-owning Lambdas read/write PostgreSQL through RDS Proxy, which reads its credentials from Secrets Manager; Lambdas emit logs and metrics to CloudWatch.](./arquitectura-aws.png)
 
-    subgraph AWSCloud["AWS Cloud"]
-        CF["Amazon CloudFront\n(CDN)"]
-        S3["Amazon S3\nstatic web app hosting"]
-        WAF["AWS WAF\nbasic request filtering"]
+## AWS services used
 
-        APIGW["Amazon API Gateway\n(HTTP API, custom domain, throttling)"]
-        Cognito["Amazon Cognito\nstaff user pool + roles/groups"]
-
-        subgraph Lambdas["AWS Lambda — one function per microservice"]
-            AuthFn["fresh-fork-auth-fn"]
-            ReservationFn["fresh-fork-reservation-fn"]
-            TableScheduleFn["fresh-fork-table-schedule-fn"]
-            CustomerFn["fresh-fork-customer-fn"]
-            ReportingFn["fresh-fork-reporting-fn"]
-            AuditFn["fresh-fork-audit-fn"]
-            NotificationFn["fresh-fork-notification-fn"]
-        end
-
-        EventBridge["Amazon EventBridge\nreservation domain events"]
-        SQS["Amazon SQS\nnotification queue (DLQ included)"]
-
-        RDSProxy["Amazon RDS Proxy\nconnection pooling"]
-        RDS[("Amazon RDS for PostgreSQL\nMulti-AZ, single small instance\nMain relational store")]
-        SES["Amazon SES\ntransactional email"]
-
-        SecretsMgr["AWS Secrets Manager\nDB credentials"]
-        CloudWatch["Amazon CloudWatch\nlogs, metrics, alarms"]
-    end
-
-    Staff -->|HTTPS| CF
-    CF --> S3
-    Staff -->|HTTPS API calls| WAF --> APIGW
-    S3 -.->|"SPA calls REST API\n(fetch/XHR, HTTPS)"| WAF
-
-    APIGW -->|authorize| Cognito
-    APIGW --> AuthFn
-    APIGW --> ReservationFn
-    APIGW --> TableScheduleFn
-    APIGW --> CustomerFn
-    APIGW --> ReportingFn
-
-    AuthFn --> Cognito
-    ReservationFn -->|sync call| TableScheduleFn
-    ReservationFn -->|sync call| CustomerFn
-    ReservationFn -->|publish ReservationCreated/Modified/Cancelled| EventBridge
-
-    EventBridge --> AuditFn
-    EventBridge --> SQS --> NotificationFn
-    NotificationFn --> SES
-
-    AuthFn --> RDSProxy
-    ReservationFn --> RDSProxy
-    TableScheduleFn --> RDSProxy
-    CustomerFn --> RDSProxy
-    ReportingFn --> RDSProxy
-    AuditFn --> RDSProxy
-    RDSProxy --> RDS
-
-    RDSProxy -.->|reads secret| SecretsMgr
-    Lambdas -.->|logs & metrics| CloudWatch
-```
+| Category | Service | Used for |
+|---|---|---|
+| Content delivery | Amazon CloudFront | CDN in front of the static Next.js export |
+| Storage | Amazon S3 | Hosts the static Next.js build |
+| Security | AWS WAF | Filters requests before they reach API Gateway |
+| Networking | Amazon API Gateway (HTTP API) | Single entry point, routes to each Lambda |
+| Security | Amazon Cognito | Staff user pool, role-based authorization |
+| Compute | AWS Lambda (×7) | One `fresh-fork-<domain>-fn` FastAPI service per bounded context |
+| App integration | Amazon EventBridge | Reservation domain events (created/modified/cancelled) |
+| App integration | Amazon SQS | Notification queue (with DLQ) between EventBridge and the notification function |
+| App integration | Amazon SES | Sends booking confirmation/reminder emails |
+| Database | Amazon RDS for PostgreSQL | System of record; DB-level double-booking constraint |
+| Database | Amazon RDS Proxy | Connection pooling for the Lambda fleet |
+| Security | AWS Secrets Manager | Database credentials |
+| Management & governance | Amazon CloudWatch | Logs, metrics, alarms for uptime/latency targets |
 
 Each Lambda is named `fresh-fork-<domain>-fn` so the function list in the AWS console maps 1:1 back to the bounded contexts in the [component diagram](./componentes.md). For a closer look inside two of these services, see the lower-level component diagrams: [componentes-customer-service.md](./componentes-customer-service.md) and [componentes-table-schedule-service.md](./componentes-table-schedule-service.md).
 
