@@ -187,7 +187,7 @@ Please return an original signature copy by mail.
 
 Printed Name:
 
-__________________________________________
+Nicolas Gonzalez & Carlos Teza
 
 Signature:
 
@@ -195,4 +195,4 @@ __________________________________________
 
 Date:
 
-__________________________________________
+11/08/2026
