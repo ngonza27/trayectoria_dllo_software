@@ -20,6 +20,7 @@ Table of contents for every development document in this project. Each item trac
   - [diagramas/componentes-table-schedule-service.md](./diagramas/componentes-table-schedule-service.md) — Diagrama de componentes (nivel bajo) del Table & Schedule Service.
   - [diagramas/arquitectura-aws.md](./diagramas/arquitectura-aws.md) — Diagrama de arquitectura (AWS, microservicios serverless); fuente editable en [diagramas/arquitectura-aws.drawio](./diagramas/arquitectura-aws.drawio).
   - [diagramas/modelo-datos.md](./diagramas/modelo-datos.md) — Modelo de datos (ER), normalizado hasta BCNF.
+- [mockups.md](./mockups.md) — UI mockups (Stitch), Phase 2 UX design deliverable.
 - [backlog-workflow.md](./backlog-workflow.md) — How the RFP backlog is structured in GitHub Issues (labels, milestones, issue template).
 
-Diagrams are written as Mermaid so they render natively on GitHub, except the AWS architecture diagram, whose editable source is a draw.io (`.drawio`) file with a Mermaid preview kept in sync alongside it.
+Diagrams are written as Mermaid so they render natively on GitHub, except the AWS architecture diagram: its editable source is a draw.io (`.drawio`) file, and [diagramas/arquitectura-aws.md](./diagramas/arquitectura-aws.md) embeds a PNG snapshot of it.
