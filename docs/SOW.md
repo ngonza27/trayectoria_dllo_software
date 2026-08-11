@@ -3,7 +3,7 @@
 **Client:** Fresh Fork Restaurant Group
 **Reference RFP:** RFP-001: Restaurant Reservation System
 **Backlog:** [Issues #11–#27](https://github.com/ngonza27/trayectoria_dllo_software/issues) in this repository
-**Status:** Draft for client review — lab-01 deliverable
+**Status:** Draft for client review
 **Date:** 2026-08-11
 
 ---
@@ -126,7 +126,7 @@ The RFP explicitly excludes food ordering, loyalty programs, advanced analytics,
 
 ### Requirements
 
-Detailed requirements are tracked as GitHub Issues in this repository, each written as a formal `SHALL` statement with acceptance criteria and traced back to a section of RFP-001, following the backlog convention in the project [README](../../README.md). The table below maps the RFP's stated needs to the current backlog, including the issues that were revised or added while preparing this SOW so the traceability stays accurate.
+Detailed requirements are tracked as GitHub Issues in this repository, each written as a formal `SHALL` statement with acceptance criteria and traced back to a section of RFP-001, following the backlog convention in the project [README](./backlog-workflow.md). The table below maps the RFP's stated needs to the current backlog, including the issues that were revised or added while preparing this SOW so the traceability stays accurate.
 
 | RFP section / need | Backlog issue | Status |
 |---|---|---|
