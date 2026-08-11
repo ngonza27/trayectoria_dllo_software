@@ -2,6 +2,8 @@
 
 **Reference:** RFP-001, scope frozen in [SOW.md](../SOW.md)
 
+**Editable source:** [arquitectura-aws.drawio](./arquitectura-aws.drawio) — open at [app.diagrams.net](https://app.diagrams.net) (File → Open From → Device) or with the draw.io VS Code extension. The Mermaid diagram below is a GitHub-native preview of the same architecture and is kept in sync with it.
+
 ## Design constraints driving the choices below
 
 The SOW is explicit about the constraints that make a heavyweight architecture the wrong choice here:
@@ -28,13 +30,13 @@ graph TB
         Cognito["Amazon Cognito\nstaff user pool + roles/groups"]
 
         subgraph Lambdas["AWS Lambda — one function per microservice"]
-            AuthFn["Auth Fn"]
-            ReservationFn["Reservation Fn"]
-            TableScheduleFn["Table & Schedule Fn"]
-            CustomerFn["Customer Fn"]
-            ReportingFn["Reporting Fn"]
-            AuditFn["Audit Fn"]
-            NotificationFn["Notification Fn"]
+            AuthFn["fresh-fork-auth-fn"]
+            ReservationFn["fresh-fork-reservation-fn"]
+            TableScheduleFn["fresh-fork-table-schedule-fn"]
+            CustomerFn["fresh-fork-customer-fn"]
+            ReportingFn["fresh-fork-reporting-fn"]
+            AuditFn["fresh-fork-audit-fn"]
+            NotificationFn["fresh-fork-notification-fn"]
         end
 
         EventBridge["Amazon EventBridge\nreservation domain events"]
@@ -51,6 +53,7 @@ graph TB
     Staff -->|HTTPS| CF
     CF --> S3
     Staff -->|HTTPS API calls| WAF --> APIGW
+    S3 -.->|"SPA calls REST API\n(fetch/XHR, HTTPS)"| WAF
 
     APIGW -->|authorize| Cognito
     APIGW --> AuthFn
@@ -79,6 +82,8 @@ graph TB
     RDSProxy -.->|reads secret| SecretsMgr
     Lambdas -.->|logs & metrics| CloudWatch
 ```
+
+Each Lambda is named `fresh-fork-<domain>-fn` so the function list in the AWS console maps 1:1 back to the bounded contexts in the [component diagram](./componentes.md). For a closer look inside two of these services, see the lower-level component diagrams: [componentes-customer-service.md](./componentes-customer-service.md) and [componentes-table-schedule-service.md](./componentes-table-schedule-service.md).
 
 ## Why each service was picked (and what was deliberately left out)
 

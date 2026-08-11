@@ -65,10 +65,12 @@ graph TB
 | API Gateway | Single entry point; enforces authentication and role checks before forwarding requests | Issue [#11](https://github.com/ngonza27/trayectoria_dllo_software/issues/11) |
 | Auth Service | Staff login, password/session management, role-based access (host vs. manager) | Issue [#11](https://github.com/ngonza27/trayectoria_dllo_software/issues/11) |
 | Reservation Service | Core booking logic; enforces double-booking prevention at the data layer | Issue [#12](https://github.com/ngonza27/trayectoria_dllo_software/issues/12), [#13](https://github.com/ngonza27/trayectoria_dllo_software/issues/13) |
-| Table & Schedule Service | Per-branch table inventory and operating hours configuration | Issue [#14](https://github.com/ngonza27/trayectoria_dllo_software/issues/14) |
-| Customer Service | Shared customer records/history across the three branches | Issue [#24](https://github.com/ngonza27/trayectoria_dllo_software/issues/24) |
+| Table & Schedule Service | Per-branch table inventory and operating hours configuration — see the [low-level breakdown](./componentes-table-schedule-service.md) | Issue [#14](https://github.com/ngonza27/trayectoria_dllo_software/issues/14) |
+| Customer Service | Shared customer records/history across the three branches — see the [low-level breakdown](./componentes-customer-service.md) | Issue [#24](https://github.com/ngonza27/trayectoria_dllo_software/issues/24) |
 | Notification Service | Sends email confirmations and reminders; decoupled from the booking transaction | Issue [#15](https://github.com/ngonza27/trayectoria_dllo_software/issues/15) |
 | Reporting Service | Basic occupancy dashboard for managers | Issue [#16](https://github.com/ngonza27/trayectoria_dllo_software/issues/16) |
 | Audit Service | Records who changed what reservation and when | Issue [#20](https://github.com/ngonza27/trayectoria_dllo_software/issues/20) |
 
 The Reservation Service is deliberately kept as the single writer of reservation state — Table & Schedule and Customer are read dependencies it calls synchronously, while Notification and Audit are downstream consumers it notifies asynchronously, so a slow email provider can never block or fail a booking.
+
+Two of the seven services are broken down one level further as a worked example of this layering — [componentes-customer-service.md](./componentes-customer-service.md) and [componentes-table-schedule-service.md](./componentes-table-schedule-service.md) — the same handler → service → validator/check → repository pattern applies to the rest.

@@ -15,9 +15,11 @@ Table of contents for every development document in this project. Each item trac
   - [scoping/backlog_scope.md](./scoping/backlog_scope.md) — Refined backlog (user stories and acceptance criteria).
 - **Diagramas**
   - [diagramas/casos-de-uso.md](./diagramas/casos-de-uso.md) — Diagrama de casos de uso.
-  - [diagramas/componentes.md](./diagramas/componentes.md) — Diagrama de componentes.
-  - [diagramas/arquitectura-aws.md](./diagramas/arquitectura-aws.md) — Diagrama de arquitectura (AWS, microservicios serverless).
+  - [diagramas/componentes.md](./diagramas/componentes.md) — Diagrama de componentes (nivel de sistema).
+  - [diagramas/componentes-customer-service.md](./diagramas/componentes-customer-service.md) — Diagrama de componentes (nivel bajo) del Customer Service.
+  - [diagramas/componentes-table-schedule-service.md](./diagramas/componentes-table-schedule-service.md) — Diagrama de componentes (nivel bajo) del Table & Schedule Service.
+  - [diagramas/arquitectura-aws.md](./diagramas/arquitectura-aws.md) — Diagrama de arquitectura (AWS, microservicios serverless); fuente editable en [diagramas/arquitectura-aws.drawio](./diagramas/arquitectura-aws.drawio).
   - [diagramas/modelo-datos.md](./diagramas/modelo-datos.md) — Modelo de datos (ER), normalizado hasta BCNF.
 - [backlog-workflow.md](./backlog-workflow.md) — How the RFP backlog is structured in GitHub Issues (labels, milestones, issue template).
 
-All diagrams are written as Mermaid so they render natively on GitHub.
+Diagrams are written as Mermaid so they render natively on GitHub, except the AWS architecture diagram, whose editable source is a draw.io (`.drawio`) file with a Mermaid preview kept in sync alongside it.
