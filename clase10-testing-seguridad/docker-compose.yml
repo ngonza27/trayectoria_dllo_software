@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      # This is the cluster's bootstrap superuser, used only once by
+      # db/init/01-create-app-role.sql to create the unprivileged
+      # `cuentas_app` role the application actually connects as — see the
+      # comment in that file for why (Postgres RLS + superusers).
+      POSTGRES_PASSWORD: postgres_admin_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - cuentas_pg_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  cuentas_pg_data:

@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Cuentas API</title>
+</head>
+<body>
+  <script>
+    window.location.href = localStorage.getItem("access_token") ? "/dashboard.html" : "/login.html";
+  </script>
+  <p>Redirigiendo… si no ocurre automáticamente, ve a <a href="/login.html">/login.html</a>.</p>
+</body>
+</html>

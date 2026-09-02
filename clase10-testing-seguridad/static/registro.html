@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Registro — Cuentas API</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 380px; margin: 80px auto; }
+    label { display: block; margin-top: 12px; font-size: 14px; }
+    input, select { width: 100%; padding: 8px; box-sizing: border-box; margin-top: 4px; }
+    button { margin-top: 20px; padding: 10px 16px; width: 100%; }
+    #error { color: #b00020; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Crear cuenta de acceso</h1>
+  <form id="registro-form">
+    <label for="organizacion">Organización</label>
+    <input id="organizacion" required placeholder="fresh-fork" />
+
+    <label for="email">Email</label>
+    <input id="email" type="email" required />
+
+    <label for="password">Contraseña (mín. 8 caracteres)</label>
+    <input id="password" type="password" minlength="8" required />
+
+    <label for="rol">Rol (solo para esta demo)</label>
+    <select id="rol">
+      <option value="usuario">usuario</option>
+      <option value="admin">admin</option>
+    </select>
+
+    <button type="submit">Registrarme</button>
+    <p id="error" hidden></p>
+  </form>
+  <p>¿Ya tienes cuenta? <a href="/login.html">Inicia sesión</a></p>
+
+  <script>
+    document.getElementById("registro-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const errorEl = document.getElementById("error");
+      errorEl.hidden = true;
+
+      const body = {
+        organizacion: document.getElementById("organizacion").value,
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value,
+        rol: document.getElementById("rol").value,
+      };
+
+      const response = await fetch("/auth/registro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        errorEl.textContent = data.detail || "No se pudo registrar.";
+        errorEl.hidden = false;
+        return;
+      }
+
+      window.location.href = "/login.html";
+    });
+  </script>
+</body>
+</html>
