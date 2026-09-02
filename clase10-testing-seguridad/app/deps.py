@@ -27,7 +27,7 @@ def get_current_claims(
 def require_role(*allowed_roles: str):
     """
     Slide 9 — Authorization (AuthZ): distinct from authentication. Being a
-    validated, logged-in user is not enough for admin-only actions.
+    validated, logged-in user is not enough for gerente-only actions.
     """
 
     def dependency(claims: dict = Depends(get_current_claims)) -> dict:
@@ -40,5 +40,5 @@ def require_role(*allowed_roles: str):
 
 def get_scoped_db(claims: dict = Depends(get_current_claims), db: Session = Depends(get_db)) -> Session:
     """DB session with the RLS session variable already set from the caller's JWT."""
-    set_org_context(db, int(claims["organizacion_id"]))
+    set_org_context(db, int(claims["restaurante_id"]))
     return db

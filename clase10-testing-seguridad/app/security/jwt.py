@@ -12,13 +12,13 @@ class InvalidTokenError(Exception):
 
 
 def create_access_token(
-    *, subject: str, email: str, rol: str, organizacion_id: int, extra_claims: dict | None = None
+    *, subject: str, email: str, rol: str, restaurante_id: int, extra_claims: dict | None = None
 ) -> str:
     """
     Slide 13 — JWT structure: header (algorithm) + payload (claims) + signature.
     This is this app's own "identity provider" for local development
     (AUTH_PROVIDER=local). It issues the same claim shape Cognito/Azure AD
-    would (sub, email, exp, iss, aud, plus our custom `rol`/`organizacion_id`)
+    would (sub, email, exp, iss, aud, plus our custom `rol`/`restaurante_id`)
     so the rest of the app never has to know which provider issued the token.
     """
     now = int(time.time())
@@ -26,7 +26,7 @@ def create_access_token(
         "sub": subject,
         "email": email,
         "rol": rol,
-        "organizacion_id": organizacion_id,
+        "restaurante_id": restaurante_id,
         "iss": settings.jwt_issuer,
         "aud": settings.jwt_audience,
         "iat": now,

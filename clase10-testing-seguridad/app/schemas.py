@@ -6,8 +6,8 @@ from pydantic import BaseModel, EmailStr, Field
 class RegistroRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
-    organizacion: str
-    rol: str = "usuario"  # "usuario" | "admin" — demo only; a real app would not let callers self-assign admin
+    restaurante: str
+    rol: str = "mesero"  # "mesero" | "gerente" — demo only; a real app would not let callers self-assign gerente
 
 
 class LoginRequest(BaseModel):
@@ -29,26 +29,37 @@ class UsuarioOut(BaseModel):
     id: int
     email: str
     rol: str
-    organizacion_id: int
+    restaurante_id: int
 
 
-class CuentaCreate(BaseModel):
-    titular: str
-    numero_cuenta: str = Field(min_length=8, max_length=20)
-    saldo: float = 0
+class ReservaCreate(BaseModel):
+    cliente_nombre: str
+    telefono: str = Field(min_length=7, max_length=20)
+    fecha_hora: datetime
+    num_personas: int = Field(gt=0)
+    mesa_numero: int = Field(gt=0)
 
 
-class CuentaUpdate(BaseModel):
-    titular: str | None = None
-    saldo: float | None = None
+class ReservaUpdate(BaseModel):
+    estado: str | None = None
+    mesa_numero: int | None = None
+    num_personas: int | None = None
 
 
-class CuentaOut(BaseModel):
+class ReservaOut(BaseModel):
     id: int
-    organizacion_id: int
-    titular: str
-    numero_cuenta: str  # masked for non-admin callers — see app/routers/accounts.py
-    saldo: float
+    restaurante_id: int
+    cliente_nombre: str
+    telefono: str  # masked for non-gerente callers — see app/routers/reservas.py
+    fecha_hora: datetime
+    num_personas: int
+    mesa_numero: int
+    estado: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ResumenOut(BaseModel):
+    total_reservas: int
+    promedio_personas: float

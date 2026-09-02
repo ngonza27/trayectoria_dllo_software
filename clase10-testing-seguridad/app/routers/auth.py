@@ -6,7 +6,7 @@ from app import schemas
 from app.analytics import capture
 from app.database import get_db
 from app.deps import get_current_claims
-from app.models import Organizacion, Usuario
+from app.models import Restaurante, Usuario
 from app.security.jwt import create_access_token
 from app.security.oauth import InvalidClientError, issue_client_credentials_token
 from app.security.passwords import hash_password, verify_password
@@ -20,26 +20,25 @@ def registro(payload: schemas.RegistroRequest, db: Session = Depends(get_db)):
     if db.query(Usuario).filter(Usuario.email == payload.email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-    org = db.query(Organizacion).filter(Organizacion.nombre == payload.organizacion).first()
-    if org is None:
-        # Found by a load test (slide 27): two requests can both see "no
-        # existing org" and both try to INSERT it — this get-or-create is
-        # only race-free because we catch the loser's UniqueViolation and
-        # fall back to reading the row the winner just created, instead of
-        # letting it bubble up as an uncaught 500.
-        org = Organizacion(nombre=payload.organizacion)
-        db.add(org)
-        try:
-            db.flush()
-        except IntegrityError:
-            db.rollback()
-            org = db.query(Organizacion).filter(Organizacion.nombre == payload.organizacion).first()
+    # BUG INTENCIONAL #1 (ver GUIA-DE-PRUEBAS.md "Bug intencional #1"): este
+    # get-or-create NO es a prueba de condiciones de carrera. Si dos requests
+    # llegan "al mismo tiempo" para el mismo restaurante nuevo, ambos pueden
+    # ver "no existe" y ambos intentan el INSERT — el segundo revienta con un
+    # IntegrityError sin capturar, que Starlette convierte en un 500 real. Se
+    # deja así a propósito para que loadtest/locustfile.py lo reproduzca bajo
+    # carga real y su reporte muestre los fallos (así es como se encuentra
+    # este tipo de bug en la vida real: casi nunca con un test secuencial).
+    restaurante = db.query(Restaurante).filter(Restaurante.nombre == payload.restaurante).first()
+    if restaurante is None:
+        restaurante = Restaurante(nombre=payload.restaurante)
+        db.add(restaurante)
+        db.flush()
 
     usuario = Usuario(
         email=payload.email,
         password_hash=hash_password(payload.password),
         rol=payload.rol,
-        organizacion_id=org.id,
+        restaurante_id=restaurante.id,
     )
     db.add(usuario)
     try:
@@ -49,7 +48,7 @@ def registro(payload: schemas.RegistroRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered") from exc
     db.commit()
 
-    capture("registro", distinct_id=str(usuario.id), properties={"organizacion": org.nombre})
+    capture("registro", distinct_id=str(usuario.id), properties={"restaurante": restaurante.nombre})
     return usuario
 
 
@@ -71,7 +70,7 @@ def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
         subject=str(usuario.id),
         email=usuario.email,
         rol=usuario.rol,
-        organizacion_id=usuario.organizacion_id,
+        restaurante_id=usuario.restaurante_id,
     )
     capture("login", distinct_id=str(usuario.id))
     return schemas.TokenResponse(access_token=token)

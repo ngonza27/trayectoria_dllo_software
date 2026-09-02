@@ -2,6 +2,8 @@
 
 Un tema por sección, en el mismo orden que las slides. Cada uno dice **qué es**, **dónde está implementado en este repo**, y el **comando o pasos exactos** para verificarlo tú mismo. Usa esto como guion para la sustentación individual (slide 25: cada integrante explica, con criterio propio, la prueba o el mecanismo que implementó).
 
+El dominio de esta demo: reservas de mesa para los **3 restaurantes** del grupo "Fresh Fork Restaurant Group" (`fresh-fork-downtown`, `fresh-fork-uptown`, `fresh-fork-riverside`) — cada restaurante es un tenant aislado por Row-Level Security (sección 19).
+
 Antes de correr nada:
 
 ```bash
@@ -24,11 +26,11 @@ cp .env.example .env
 
 ## 1. Por qué probamos el software (slide 4)
 
-Sin código de producto propio que "romper", la evidencia aquí es la suite misma: **34 pruebas automatizadas** (17 unitarias + 16 de integración + 3 E2E) que documentan, en código ejecutable, exactamente qué debe hacer el sistema. Corre todo y confirma:
+Sin código de producto propio que "romper", la evidencia aquí es la suite misma: pruebas automatizadas (17 unitarias + 18 de integración + 4 E2E) que documentan, en código ejecutable, exactamente qué debe hacer el sistema — **incluyendo dos casos donde documentan, a propósito, que algo está roto** (ver la sección "Bugs intencionales" al final). Corre todo y confirma:
 
 ```bash
 pytest tests/unit -v          # 17 passed
-pytest tests/integration -v   # 16 passed (requiere Docker)
+pytest tests/integration -v   # 18 passed (uno de ellos, el del Bug intencional #2, pasa demostrando el bug con pytest.raises — requiere Docker)
 ```
 
 ## 2. La pirámide de pruebas (slide 5)
@@ -60,13 +62,13 @@ pytest tests/unit -v
 pytest tests/integration -v
 ```
 
-El ejemplo típico de la slide — "probar que POST /orders inserta el registro y responde 201" — es literalmente `test_post_cuentas_inserts_a_row_and_responds_201` en `test_accounts_crud.py`.
+El ejemplo típico de la slide — "probar que POST /orders inserta el registro y responde 201" — es literalmente `test_post_reservas_inserts_a_row_and_responds_201` en `test_reservas_crud.py`.
 
 ## 5. TDD: Desarrollo Guiado por Pruebas (slide 8)
 
 **Dónde:** `app/security/masking.py` + `tests/unit/test_masking.py`. Para practicar el ciclo tú mismo:
 
-1. **RED** — comenta el cuerpo de `enmascarar_numero_cuenta` (deja solo `pass`) y corre `pytest tests/unit/test_masking.py` → las 3 pruebas fallan.
+1. **RED** — comenta el cuerpo de `enmascarar_telefono` (deja solo `pass`) y corre `pytest tests/unit/test_masking.py` → las 3 pruebas fallan.
 2. **GREEN** — escribe el mínimo código para que pasen, una por una.
 3. **REFACTOR** — con las 3 en verde, simplifica sin romperlas (por ejemplo, unifica los dos `return`).
 
@@ -74,22 +76,31 @@ Detalle completo en [docs/security-architecture.md § TDD paso a paso](./docs/se
 
 ## 6-7. End-to-End con Playwright (slides 9-10)
 
-**Dónde:** `tests/e2e/test_login_flow.py`, usando `pytest-playwright` (la API Python de Playwright — mismo motor que el ejemplo JS/TS de la slide, misma semántica: navega, llena campos por id, hace clic, verifica un elemento visible).
+**Dónde:** `tests/e2e/test_login_flow.py` (flujo feliz) y `tests/e2e/test_reportes_de_errores.py` (el Bug intencional #2, ver más abajo), usando `pytest-playwright` (la API Python de Playwright — mismo motor que el ejemplo JS/TS de la slide, misma semántica: navega, llena campos por id, hace clic, verifica un elemento visible).
 
 ```bash
-docker compose up -d && python -m app.init_db
+docker compose up -d && python -m app.init_db && python -m app.seed_demo_data
 uvicorn app.main:app &
 playwright install chromium   # una sola vez
-pytest tests/e2e --base-url=http://localhost:8000 -v
+pytest tests/e2e --base-url=http://localhost:8000 -v --html=report.html --self-contained-html
 ```
 
-`static/login.html` reproduce el escenario exacto de la slide 10: campos `#email`/`#password`, botón `button[type="submit"]`, y un `#dashboard` que se hace visible tras el login.
+`static/login.html` reproduce el escenario exacto de la slide 10: campos `#email`/`#password`, botón `button[type="submit"]`, y un `#dashboard` que se hace visible tras el login. `--html=report.html` genera un reporte visual de la corrida (otra de las "librerías" cuyo reporte vale la pena ver, junto con Locust y PostHog más abajo).
 
-## 8. PostHog: Analítica de Producto (slide 11)
+## 8. PostHog: Analítica de Producto y Session Replay (slide 11)
 
-**Dónde:** `app/analytics.py`, con `capture()` llamado desde `app/routers/auth.py` (`registro`, `login`) y `app/routers/accounts.py` (`crear_cuenta`) — los 2-3 eventos clave que sugiere la slide.
+**Dónde:**
+- Backend: `app/analytics.py` (`capture()`, llamado desde `app/routers/auth.py` — `registro`/`login` — y `app/routers/reservas.py` — `crear_reserva`).
+- Frontend: `static/analytics.js`, incluido en cada página HTML. Inicializa `posthog-js` con la llave que expone `GET /public-config` (`app/main.py`) y activa `capture_exceptions: true` — autocaptura de errores no manejados y session replay.
 
-**Cómo probarlo sin cuenta de PostHog:** deja `POSTHOG_API_KEY` vacío en `.env` (el default) y observa el log al registrarte/loguearte/crear una cuenta:
+**Dos llaves, dos usos distintos — no las confundas:**
+
+| Llave | Tipo | Dónde vive | Para qué |
+|---|---|---|---|
+| Project API key (`phc_...`) | Pública | `.env` → `POSTHOG_PROJECT_API_KEY`; servida al navegador vía `GET /public-config` | Capturar eventos (server y cliente) y grabar session replay |
+| Personal API key (`phx_...`) | **Secreta**, solo lectura | `.env` → `POSTHOG_PERSONAL_API_KEY`; **nunca** sale del backend | Listar replays vía `GET /admin/analytics/session-recordings` (solo gerente), para verificar sin abrir el dashboard de PostHog |
+
+**Cómo probarlo sin cuenta de PostHog:** deja ambas llaves vacías en `.env` (el default) y observa el log al registrarte/loguearte/crear una reserva:
 
 ```bash
 uvicorn app.main:app --log-level info
@@ -97,7 +108,14 @@ uvicorn app.main:app --log-level info
 # verás: "posthog(no-op): event=registro distinct_id=1 properties=..."
 ```
 
-**Con una cuenta real de PostHog:** pon tu `POSTHOG_API_KEY` en `.env` y los mismos eventos llegarán al proyecto — session replay y feature flags se configuran desde el dashboard de PostHog, no desde este código.
+**Con una cuenta real de PostHog** (pon `POSTHOG_PROJECT_API_KEY` y `POSTHOG_PERSONAL_API_KEY` en `.env`):
+
+1. Levanta la app, abre `http://localhost:8000/login.html` en un navegador real (no en modo headless) y regístrate/loguéate — deberías ver la sesión aparecer en PostHog → **Activity** casi en tiempo real.
+2. Ve al dashboard: como el restaurante es nuevo, dispara el **Bug intencional #2** (abajo) — PostHog captura el `TypeError` como un evento `$exception` (**Error tracking**) y graba la sesión completa (**Session replay**), reproducible fotograma a fotograma con el error resaltado en el momento exacto en que ocurrió.
+3. Verifica desde la propia API, sin abrir el dashboard, con la llave personal:
+   ```bash
+   curl -s http://localhost:8000/admin/analytics/session-recordings -H "Authorization: Bearer $TOKEN_GERENTE" | jq
+   ```
 
 ## 9. Autenticación y Autorización (slide 12)
 
@@ -105,10 +123,10 @@ uvicorn app.main:app --log-level info
 
 ```bash
 curl -i http://localhost:8000/auth/me                                    # 401 — ni siquiera hay identidad
-curl -i http://localhost:8000/cuentas/1 -X DELETE -H "Authorization: Bearer $TOKEN_USUARIO"  # 403 — identificado, pero sin permiso
+curl -i http://localhost:8000/reservas/1 -X DELETE -H "Authorization: Bearer $TOKEN_MESERO"  # 403 — identificado, pero sin permiso
 ```
 
-Pruebas automatizadas: `tests/integration/test_auth_flow.py::test_protected_endpoint_without_a_token_is_rejected` (AuthN) y `test_accounts_crud.py::test_only_admin_can_delete_a_cuenta` (AuthZ).
+Pruebas automatizadas: `tests/integration/test_auth_flow.py::test_protected_endpoint_without_a_token_is_rejected` (AuthN) y `test_reservas_crud.py::test_only_gerente_can_cancel_a_reserva` (AuthZ).
 
 ## 10-11. AWS Cognito / Azure AD (Entra ID) (slides 13-14)
 
@@ -163,9 +181,11 @@ Pruebas: `tests/integration/test_auth_flow.py::test_client_credentials_grant_iss
 
 ```bash
 git status              # .env no debe aparecer nunca aquí (está en .gitignore)
-grep -rn "password\|secret\|Segura123" app/ --include="*.py" | grep -v "app/config.py\|app/security"
-# no debería devolver contraseñas ni secretos reales, solo nombres de campos/parámetros
+grep -rn "password\|secret\|Segura123\|phc_\|phx_" app/ --include="*.py" | grep -v "app/config.py\|app/security"
+# no debería devolver contraseñas ni llaves reales, solo nombres de campos/parámetros
 ```
+
+Esto aplica también a las llaves de PostHog de la sección 8: la project key se sirve desde el backend vía `/public-config` (nunca hardcodeada en `static/`), y la personal key jamás sale de `app/analytics.py`/`app/routers/admin.py`.
 
 En producción, `.env` se reemplaza por AWS Secrets Manager / Parameter Store — no hay código de eso aquí porque es configuración de infraestructura, no de la aplicación (ver la arquitectura AWS de este mismo repo en `../docs/diagramas/arquitectura-aws.md`, que ya usa Secrets Manager para las credenciales de RDS).
 
@@ -195,41 +215,41 @@ pytest tests/unit/test_passwords.py -v
 
 ## 19. Row-Level Security en PostgreSQL (slide 22)
 
-**Dónde:** `app/rls.sql` — la política es prácticamente copy-paste de la slide, adaptada a `cuentas`/`organizacion_id`.
+**Dónde:** `app/rls.sql` — la política es prácticamente copy-paste de la slide, adaptada a `reservas`/`restaurante_id`.
 
 ```bash
-pytest tests/integration/test_accounts_crud.py::test_rls_blocks_cross_tenant_reads_even_with_no_where_clause_at_all -v
+pytest tests/integration/test_reservas_crud.py::test_rls_blocks_cross_tenant_reads_even_with_no_where_clause_at_all -v
 ```
 
-Esa prueba es la demostración más fuerte posible: hace `SELECT titular FROM cuentas` **sin ningún WHERE**, como el rol de la organización B, y solo recibe la fila de B — la base de datos, no el código de la aplicación, es quien filtra.
+Esa prueba es la demostración más fuerte posible: hace `SELECT cliente_nombre FROM reservas` **sin ningún WHERE**, como el rol del restaurante B, y solo recibe la fila de B — la base de datos, no el código de la aplicación, es quien filtra.
 
 **A mano, con `psql` contra el Postgres de `docker compose`:**
 
 ```bash
-docker compose exec db psql -U cuentas_app -d cuentas_db
-SET app.org_id = '1';
-SELECT * FROM cuentas;          -- solo filas de la organización 1
-SET app.org_id = '2';
-SELECT * FROM cuentas;          -- ahora solo filas de la organización 2, misma sesión, mismo rol
+docker compose exec db psql -U reservas_app -d reservas_db
+SET app.restaurante_id = '1';
+SELECT * FROM reservas;          -- solo filas del restaurante 1
+SET app.restaurante_id = '2';
+SELECT * FROM reservas;          -- ahora solo filas del restaurante 2, misma sesión, mismo rol
 ```
 
 Ver también [docs/security-architecture.md § El superusuario invisible](./docs/security-architecture.md#el-superusuario-invisible-un-hallazgo-real-de-este-repo) — un problema real que este repo encontró mientras escribía estas pruebas y que vale la pena entender.
 
 ## 20. Column Masking (slide 23)
 
-**Dos implementaciones, a propósito:** la vista SQL `cuentas_enmascaradas` en `app/rls.sql` (idéntica a la slide) y la función pura `enmascarar_numero_cuenta` en `app/security/masking.py` (la misma regla, en Python, testeable sin base de datos).
+**Dos implementaciones, a propósito:** la vista SQL `reservas_enmascaradas` en `app/rls.sql` (idéntica a la slide) y la función pura `enmascarar_telefono` en `app/security/masking.py` (la misma regla, en Python, testeable sin base de datos) — aquí aplicada al teléfono del cliente en vez de un número de cuenta.
 
 ```bash
 pytest tests/unit/test_masking.py -v                                    # la regla, aislada
-pytest tests/integration/test_accounts_crud.py -k masked -v             # la vista, vía la API
+pytest tests/integration/test_reservas_crud.py -k masked -v             # la vista, vía la API
 ```
 
 ```bash
 # a mano
-curl -s http://localhost:8000/cuentas -H "Authorization: Bearer $TOKEN_ROL_USUARIO" | jq '.[0].numero_cuenta'
-# "**** **** **** 1234"
-curl -s http://localhost:8000/cuentas -H "Authorization: Bearer $TOKEN_ROL_ADMIN" | jq '.[0].numero_cuenta'
-# "1111222233331234"
+curl -s http://localhost:8000/reservas -H "Authorization: Bearer $TOKEN_ROL_MESERO" | jq '.[0].telefono'
+# "*** *** 4567"
+curl -s http://localhost:8000/reservas -H "Authorization: Bearer $TOKEN_ROL_GERENTE" | jq '.[0].telefono'
+# "+573001234567"
 ```
 
 ## 21. Arquitectura de Seguridad End-to-End (slide 24)
@@ -259,6 +279,53 @@ locust -f loadtest/locustfile.py --host http://localhost:8000
 # abre http://localhost:8089, define usuarios y spawn rate, observa las estadísticas en vivo
 ```
 
-**Qué encontramos corriendo este load test:** con varios usuarios registrándose "concurrentemente" bajo el mismo nombre de organización, el `get-or-create` de `Organizacion` en `app/routers/auth.py` tenía una condición de carrera — dos requests podían ver "no existe" al mismo tiempo e intentar insertarla ambas, y la segunda fallaba con un `500` sin manejar. El fix (capturar el `IntegrityError` y releer la fila que ganó la carrera) está en el código y cubierto por `tests/integration/test_auth_flow.py::test_two_users_registering_under_the_same_organizacion_share_its_id`. Esto es exactamente lo que un load test debe hacer: encontrar bugs que ninguna prueba unitaria o de integración secuencial iba a encontrar.
+Ver la sección siguiente — este load test está diseñado a propósito para reproducir el Bug intencional #1.
 
-También verás `429 Too Many Requests` en las estadísticas de `/auth/login` una vez hay suficientes usuarios concurrentes — el rate limiter (sección 17) funcionando bajo carga real, no solo en una prueba aislada.
+---
+
+## Bugs intencionales (para ver los reportes de las librerías en acción)
+
+Esta demo deja **dos bugs reales, sin corregir, a propósito** — no son errores en el ejercicio, son el ejercicio: la meta es que veas cómo cada herramienta (pytest, Playwright, Locust, PostHog) *reporta* un fallo real, no solo que veas una suite en verde.
+
+### Bug intencional #1 — condición de carrera en `POST /auth/registro`
+
+**Dónde:** `app/routers/auth.py`, el `get-or-create` de `Restaurante`. Si dos requests llegan casi al mismo tiempo pidiendo el mismo restaurante nuevo, ambos pueden ver "no existe todavía" y ambos intentan `INSERT`arlo — el segundo revienta con un `IntegrityError` de Postgres (violación de la restricción `UNIQUE` en `restaurantes.nombre`) que nadie captura, y Starlette lo convierte en un `500 Internal Server Error` real.
+
+**Cómo verlo — el reporte de Locust:**
+
+```bash
+docker compose up -d && python -m app.init_db
+uvicorn app.main:app &
+locust -f loadtest/locustfile.py --host http://localhost:8000 \
+    --users 30 --spawn-rate 30 --run-time 20s --headless
+```
+
+`loadtest/locustfile.py` hace que **todos** los usuarios simulados se registren bajo el mismo restaurante (`"carga-comun"`) a propósito, para maximizar la contención. Con suficientes usuarios arrancando "al mismo tiempo" (spawn rate alto), la tabla de resumen final de Locust muestra `/auth/registro [POST]` con un `# Failures` mayor a 0, y la sección **Failures** de la UI web (`http://localhost:8089`) lista el mensaje exacto (`response.failure(...)` en el locustfile). Esto es exactamente lo que un load test debe hacer: encontrar bugs de concurrencia que ningún test unitario o de integración secuencial va a encontrar — `tests/integration/test_auth_flow.py::test_two_users_registering_under_the_same_restaurante_share_its_id` pasa porque es secuencial, no concurrente.
+
+**El arreglo** (si quisieras corregirlo) es el patrón estándar: capturar el `IntegrityError`, hacer `rollback()`, y releer la fila que ganó la carrera — documentado, con el código exacto, en [docs/security-architecture.md § Bugs intencionales](./docs/security-architecture.md#bugs-intencionales-cómo-se-ven-en-cada-herramienta).
+
+### Bug intencional #2 — `ZeroDivisionError` en `GET /reservas/resumen`
+
+**Dónde:** `app/routers/reservas.py`, `resumen_reservas()`: calcula `total_personas / len(reservas)` sin comprobar que la lista no esté vacía. Un restaurante recién registrado no tiene reservas todavía, así que el endpoint revienta con un `ZeroDivisionError` real — un `500` sin capturar.
+
+**El frontend lo empeora a propósito:** `static/dashboard.html` → `cargarResumen()` no valida `response.ok` antes de leer el body. El `500` real de Starlette (sin `DEBUG`) es texto plano ("Internal Server Error"), no JSON — `await response.json()` revienta con un `SyntaxError` **no capturado** en el navegador al intentar parsearlo.
+
+**Tres formas de verlo, tres reportes distintos:**
+
+1. **El traceback crudo de la librería del servidor** (uvicorn/Starlette) — el más literal de "ver el reporte":
+   ```bash
+   uvicorn app.main:app --reload
+   # en otra terminal, crea un restaurante nuevo y pide su resumen sin haber creado ninguna reserva:
+   curl -s -X POST http://localhost:8000/auth/registro -H "Content-Type: application/json" \
+     -d '{"restaurante":"demo-bug-2","email":"bug2@puy.com","password":"Segura123!"}' > /dev/null
+   TOKEN=$(curl -s -X POST http://localhost:8000/auth/login -H "Content-Type: application/json" \
+     -d '{"email":"bug2@puy.com","password":"Segura123!"}' | jq -r .access_token)
+   curl -i http://localhost:8000/reservas/resumen -H "Authorization: Bearer $TOKEN"
+   # 500 Internal Server Error — y en la terminal de uvicorn, un traceback completo
+   # terminando en "ZeroDivisionError: division by zero"
+   ```
+2. **pytest**, documentando el bug tal como se dejó: `tests/integration/test_reservas_crud.py::test_resumen_of_a_restaurante_with_no_reservas_hits_bug_intencional_2` — quita el `pytest.raises(ZeroDivisionError)` de ese test y verás el mismo traceback, esta vez en el reporte de pytest.
+3. **Playwright + PostHog**, del lado del navegador: `tests/e2e/test_reportes_de_errores.py::test_dashboard_de_un_restaurante_nuevo_dispara_un_error_capturable_por_playwright` escucha `page.on("pageerror", ...)` — sin instrumentar nada más — y confirma que el `TypeError` ocurrió. Corre este mismo flujo con un navegador visible y `POSTHOG_PROJECT_API_KEY`/`POSTHOG_PERSONAL_API_KEY` configurados (sección 8) para ver el mismo error como un evento `$exception` en PostHog, con su session replay:
+   ```bash
+   pytest tests/e2e/test_reportes_de_errores.py --base-url=http://localhost:8000 --headed -v
+   ```

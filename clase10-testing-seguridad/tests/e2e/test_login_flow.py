@@ -21,9 +21,9 @@ import uuid
 from playwright.sync_api import Page, expect
 
 
-def _registrar_y_loguear(page: Page, email: str, password: str) -> None:
+def _registrar_y_loguear(page: Page, email: str, password: str, restaurante: str = "fresh-fork-e2e") -> None:
     page.goto("/registro.html")
-    page.fill("#organizacion", "fresh-fork-e2e")
+    page.fill("#restaurante", restaurante)
     page.fill("#email", email)
     page.fill("#password", password)
     page.click('button[type="submit"]')
@@ -55,18 +55,20 @@ def test_login_con_credenciales_invalidas_muestra_un_error(page: Page):
     expect(page.locator("#error")).to_contain_text("inválidas")
 
 
-def test_un_usuario_puede_crear_una_cuenta_desde_el_dashboard(page: Page):
+def test_un_usuario_puede_crear_una_reserva_desde_el_dashboard(page: Page):
     email = f"e2e-{uuid.uuid4().hex[:8]}@puy.com"
     password = "Segura123!"
     _registrar_y_loguear(page, email, password)
     expect(page.locator("#dashboard")).to_be_visible()
 
-    page.fill("#titular", "Cliente E2E")
-    page.fill("#numero_cuenta", "9999888877776666")
-    page.fill("#saldo", "150")
+    page.fill("#cliente_nombre", "Cliente E2E")
+    page.fill("#telefono", "+573009998877")
+    page.fill("#fecha_hora", "2026-09-10T20:00")
+    page.fill("#num_personas", "3")
+    page.fill("#mesa_numero", "5")
     page.click('#crear-form button[type="submit"]')
 
-    expect(page.locator("#cuentas-body")).to_contain_text("Cliente E2E")
+    expect(page.locator("#reservas-body")).to_contain_text("Cliente E2E")
     # This user registered without an explicit role, so the API defaults to
-    # "usuario" and the account number comes back masked — slide 20/23.
-    expect(page.locator("#cuentas-body")).to_contain_text("**** **** **** 6666")
+    # "mesero" and the phone number comes back masked — slide 20/23.
+    expect(page.locator("#reservas-body")).to_contain_text("*** *** 8877")

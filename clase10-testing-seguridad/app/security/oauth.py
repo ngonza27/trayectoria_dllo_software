@@ -20,6 +20,6 @@ def issue_client_credentials_token(client_id: str, client_secret: str) -> str:
         subject=client_id,
         email="",
         rol="service",
-        organizacion_id=0,
-        extra_claims={"grant_type": "client_credentials", "scope": "cuentas:read"},
+        restaurante_id=0,
+        extra_claims={"grant_type": "client_credentials", "scope": "reservas:read"},
     )

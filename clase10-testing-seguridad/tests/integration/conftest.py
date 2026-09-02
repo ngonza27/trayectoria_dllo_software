@@ -26,10 +26,10 @@ from testcontainers.postgres import PostgresContainer
 # image's initdb step, which ALWAYS makes it a superuser — and Postgres never
 # applies RLS policies to superusers, full stop, no ALTER can change that.
 # So the app must connect as a second, deliberately unprivileged role
-# instead, or the RLS tests in test_accounts_crud.py would pass for the
-# wrong reason (nobody's account was ever actually restricted).
+# instead, or the RLS tests in test_reservas_crud.py would pass for the
+# wrong reason (nobody's reservations were ever actually restricted).
 _container = PostgresContainer(
-    "postgres:16-alpine", username="postgres_admin", password="postgres_admin", dbname="cuentas_db"
+    "postgres:16-alpine", username="postgres_admin", password="postgres_admin", dbname="reservas_db"
 )
 _container.start()
 atexit.register(_container.stop)
@@ -38,13 +38,13 @@ _admin_url = _container.get_connection_url()
 _admin_engine = create_engine(_admin_url)
 with _admin_engine.begin() as conn:
     conn.exec_driver_sql(
-        "CREATE ROLE cuentas_app WITH LOGIN PASSWORD 'cuentas_app' NOSUPERUSER NOBYPASSRLS"
+        "CREATE ROLE reservas_app WITH LOGIN PASSWORD 'reservas_app' NOSUPERUSER NOBYPASSRLS"
     )
-    conn.exec_driver_sql("GRANT ALL ON SCHEMA public TO cuentas_app")
+    conn.exec_driver_sql("GRANT ALL ON SCHEMA public TO reservas_app")
 _admin_engine.dispose()
 
 os.environ["DATABASE_URL"] = _admin_url.replace(
-    "postgres_admin:postgres_admin@", "cuentas_app:cuentas_app@"
+    "postgres_admin:postgres_admin@", "reservas_app:reservas_app@"
 )
 # Keep the auth-flow tests below from tripping the login rate limiter
 # (slide 17); that behavior gets its own focused test with its own tiny app
@@ -65,7 +65,7 @@ init_db()
 def _reset_tables():
     """Slide 6's "independientes entre sí" rule, applied to integration tests too."""
     with engine.begin() as conn:
-        conn.exec_driver_sql("TRUNCATE cuentas, usuarios, organizaciones RESTART IDENTITY CASCADE")
+        conn.exec_driver_sql("TRUNCATE reservas, usuarios, restaurantes RESTART IDENTITY CASCADE")
     yield
 
 

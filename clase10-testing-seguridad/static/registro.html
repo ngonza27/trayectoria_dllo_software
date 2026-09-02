@@ -2,7 +2,8 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Registro — Cuentas API</title>
+  <title>Registro — Fresh Fork Restaurant Group</title>
+  <script src="/analytics.js"></script>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 380px; margin: 80px auto; }
     label { display: block; margin-top: 12px; font-size: 14px; }
@@ -14,8 +15,13 @@
 <body>
   <h1>Crear cuenta de acceso</h1>
   <form id="registro-form">
-    <label for="organizacion">Organización</label>
-    <input id="organizacion" required placeholder="fresh-fork" />
+    <label for="restaurante">Restaurante</label>
+    <input id="restaurante" required placeholder="fresh-fork-downtown" list="restaurantes-sugeridos" />
+    <datalist id="restaurantes-sugeridos">
+      <option value="fresh-fork-downtown"></option>
+      <option value="fresh-fork-uptown"></option>
+      <option value="fresh-fork-riverside"></option>
+    </datalist>
 
     <label for="email">Email</label>
     <input id="email" type="email" required />
@@ -25,8 +31,8 @@
 
     <label for="rol">Rol (solo para esta demo)</label>
     <select id="rol">
-      <option value="usuario">usuario</option>
-      <option value="admin">admin</option>
+      <option value="mesero">mesero</option>
+      <option value="gerente">gerente</option>
     </select>
 
     <button type="submit">Registrarme</button>
@@ -41,7 +47,7 @@
       errorEl.hidden = true;
 
       const body = {
-        organizacion: document.getElementById("organizacion").value,
+        restaurante: document.getElementById("restaurante").value,
         email: document.getElementById("email").value,
         password: document.getElementById("password").value,
         rol: document.getElementById("rol").value,

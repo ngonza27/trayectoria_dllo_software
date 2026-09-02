@@ -15,7 +15,7 @@ from app.security.jwt import InvalidTokenError, create_access_token, decode_and_
 
 def test_a_freshly_issued_token_is_valid():
     # Arrange
-    token = create_access_token(subject="1", email="demo@puy.com", rol="usuario", organizacion_id=1)
+    token = create_access_token(subject="1", email="demo@puy.com", rol="mesero", restaurante_id=1)
 
     # Act
     claims = decode_and_validate_token(token)
@@ -23,13 +23,13 @@ def test_a_freshly_issued_token_is_valid():
     # Assert
     assert claims["sub"] == "1"
     assert claims["email"] == "demo@puy.com"
-    assert claims["rol"] == "usuario"
-    assert claims["organizacion_id"] == 1
+    assert claims["rol"] == "mesero"
+    assert claims["restaurante_id"] == 1
 
 
 def test_payload_is_base64_not_encrypted_anyone_can_read_it_without_the_key():
     # Arrange / Act
-    token = create_access_token(subject="1", email="demo@puy.com", rol="usuario", organizacion_id=1)
+    token = create_access_token(subject="1", email="demo@puy.com", rol="mesero", restaurante_id=1)
     header_b64, payload_b64, _signature = token.split(".")
 
     import base64
@@ -48,8 +48,8 @@ def test_expired_token_is_rejected():
     token = create_access_token(
         subject="1",
         email="demo@puy.com",
-        rol="usuario",
-        organizacion_id=1,
+        rol="mesero",
+        restaurante_id=1,
         extra_claims={"iat": now - 3600, "exp": now - 1},
     )
 
@@ -60,7 +60,7 @@ def test_expired_token_is_rejected():
 
 def test_tampered_signature_is_rejected():
     # Arrange
-    token = create_access_token(subject="1", email="demo@puy.com", rol="usuario", organizacion_id=1)
+    token = create_access_token(subject="1", email="demo@puy.com", rol="mesero", restaurante_id=1)
     header, payload, signature = token.split(".")
     flipped_char = "A" if signature[-1] != "A" else "B"
     tampered_token = f"{header}.{payload}.{signature[:-1]}{flipped_char}"
@@ -75,8 +75,8 @@ def test_wrong_issuer_is_rejected():
     token = create_access_token(
         subject="1",
         email="demo@puy.com",
-        rol="usuario",
-        organizacion_id=1,
+        rol="mesero",
+        restaurante_id=1,
         extra_claims={"iss": "un-emisor-no-confiable"},
     )
 
@@ -90,8 +90,8 @@ def test_wrong_audience_is_rejected():
     token = create_access_token(
         subject="1",
         email="demo@puy.com",
-        rol="usuario",
-        organizacion_id=1,
+        rol="mesero",
+        restaurante_id=1,
         extra_claims={"aud": "otra-api"},
     )
 

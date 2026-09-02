@@ -7,5 +7,5 @@
 -- the RLS policy in app/rls.sql would silently do nothing. This creates a
 -- second, deliberately unprivileged role for the app to use instead.
 
-CREATE ROLE cuentas_app WITH LOGIN PASSWORD 'cuentas_app' NOSUPERUSER NOBYPASSRLS;
-CREATE DATABASE cuentas_db OWNER cuentas_app;
+CREATE ROLE reservas_app WITH LOGIN PASSWORD 'reservas_app' NOSUPERUSER NOBYPASSRLS;
+CREATE DATABASE reservas_db OWNER reservas_app;

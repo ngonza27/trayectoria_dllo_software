@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import ForeignKey, Numeric, String
+from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -10,8 +10,10 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class Organizacion(Base):
-    __tablename__ = "organizaciones"
+class Restaurante(Base):
+    """One of the 3 locations of the "Fresh Fork" group used as this demo's tenants."""
+
+    __tablename__ = "restaurantes"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(120), unique=True)
@@ -25,25 +27,28 @@ class Usuario(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
-    rol: Mapped[str] = mapped_column(String(20), default="usuario")  # "usuario" | "admin"
-    organizacion_id: Mapped[int] = mapped_column(ForeignKey("organizaciones.id"))
+    rol: Mapped[str] = mapped_column(String(20), default="mesero")  # "mesero" | "gerente"
+    restaurante_id: Mapped[int] = mapped_column(ForeignKey("restaurantes.id"))
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
-    organizacion: Mapped["Organizacion"] = relationship()
+    restaurante: Mapped["Restaurante"] = relationship()
 
 
-class Cuenta(Base):
+class Reserva(Base):
     """
-    Slide 22/23 — the exact `cuentas` table the RLS policy and masking view
-    in app/rls.sql target: `organizacion_id` is the RLS partition key,
-    `numero_cuenta` is the column the masked view hides.
+    Slide 22/23 — the exact table the RLS policy and masking view in
+    app/rls.sql target: `restaurante_id` is the RLS partition key, `telefono`
+    is the column the masked view hides.
     """
 
-    __tablename__ = "cuentas"
+    __tablename__ = "reservas"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    organizacion_id: Mapped[int] = mapped_column(ForeignKey("organizaciones.id"))
-    titular: Mapped[str] = mapped_column(String(120))
-    numero_cuenta: Mapped[str] = mapped_column(String(20))
-    saldo: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
+    restaurante_id: Mapped[int] = mapped_column(ForeignKey("restaurantes.id"))
+    cliente_nombre: Mapped[str] = mapped_column(String(120))
+    telefono: Mapped[str] = mapped_column(String(20))
+    fecha_hora: Mapped[datetime]
+    num_personas: Mapped[int] = mapped_column(Integer)
+    mesa_numero: Mapped[int] = mapped_column(Integer)
+    estado: Mapped[str] = mapped_column(String(20), default="pendiente")  # pendiente|confirmada|cancelada
     created_at: Mapped[datetime] = mapped_column(default=utcnow)

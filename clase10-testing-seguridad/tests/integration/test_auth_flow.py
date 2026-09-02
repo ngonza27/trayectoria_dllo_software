@@ -11,7 +11,7 @@ from tests.integration.helpers import registrar_y_loguear
 
 def test_registro_then_login_then_access_protected_endpoint(client):
     # Arrange
-    payload = {"organizacion": "fresh-fork", "email": "demo@puy.com", "password": "Segura123!", "rol": "usuario"}
+    payload = {"restaurante": "fresh-fork-downtown", "email": "demo@puy.com", "password": "Segura123!", "rol": "mesero"}
 
     # Act
     register_response = client.post("/auth/registro", json=payload)
@@ -37,7 +37,7 @@ def test_registro_then_login_then_access_protected_endpoint(client):
 
 
 def test_duplicate_email_is_rejected(client):
-    payload = {"organizacion": "fresh-fork", "email": "dup@puy.com", "password": "Segura123!"}
+    payload = {"restaurante": "fresh-fork-downtown", "email": "dup@puy.com", "password": "Segura123!"}
     assert client.post("/auth/registro", json=payload).status_code == 201
 
     response = client.post("/auth/registro", json=payload)
@@ -46,7 +46,7 @@ def test_duplicate_email_is_rejected(client):
 
 
 def test_login_with_wrong_password_is_rejected(client):
-    client.post("/auth/registro", json={"organizacion": "fresh-fork", "email": "demo2@puy.com", "password": "Segura123!"})
+    client.post("/auth/registro", json={"restaurante": "fresh-fork-downtown", "email": "demo2@puy.com", "password": "Segura123!"})
 
     response = client.post("/auth/login", json={"email": "demo2@puy.com", "password": "incorrecta"})
 
@@ -85,20 +85,21 @@ def test_client_credentials_grant_rejects_a_wrong_secret(client):
     assert response.status_code == 401
 
 
-def test_registrar_y_loguear_helper_returns_organizacion_id(client):
-    _token, perfil = registrar_y_loguear(client, email="helper@puy.com", organizacion="helper-org")
+def test_registrar_y_loguear_helper_returns_restaurante_id(client):
+    _token, perfil = registrar_y_loguear(client, email="helper@puy.com", restaurante="helper-restaurant")
 
-    assert perfil["organizacion_id"] is not None
+    assert perfil["restaurante_id"] is not None
 
 
-def test_two_users_registering_under_the_same_organizacion_share_its_id(client):
+def test_two_users_registering_under_the_same_restaurante_share_its_id(client):
     """
-    Regression coverage for the get-or-create race a Locust run surfaced —
-    see loadtest/locustfile.py and docs/security-architecture.md "Qué
-    encontramos corriendo el load test". Sequential here (not concurrent);
-    the load test is what exercises the actual race.
+    Sequential (not concurrent) proof that the get-or-create in
+    app/routers/auth.py works on the happy path. It does NOT prove the path
+    is race-free — it deliberately isn't (Bug intencional #1, see
+    GUIA-DE-PRUEBAS.md and loadtest/locustfile.py, which is what actually
+    reproduces the race, since it sends real concurrent requests).
     """
-    _token1, perfil1 = registrar_y_loguear(client, email="miembro1@puy.com", organizacion="misma-org")
-    _token2, perfil2 = registrar_y_loguear(client, email="miembro2@puy.com", organizacion="misma-org")
+    _token1, perfil1 = registrar_y_loguear(client, email="miembro1@puy.com", restaurante="mismo-restaurante")
+    _token2, perfil2 = registrar_y_loguear(client, email="miembro2@puy.com", restaurante="mismo-restaurante")
 
-    assert perfil1["organizacion_id"] == perfil2["organizacion_id"]
+    assert perfil1["restaurante_id"] == perfil2["restaurante_id"]
