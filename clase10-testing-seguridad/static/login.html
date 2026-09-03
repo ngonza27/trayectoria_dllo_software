@@ -27,8 +27,6 @@
   <p>¿No tienes cuenta? <a href="/registro.html">Regístrate</a></p>
 
   <script>
-    // Mirrors the exact scenario from Semana_10 slide 10 (Playwright example):
-    // fill #email/#password, click the submit button, land on a page with #dashboard.
     document.getElementById("login-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       const errorEl = document.getElementById("error");

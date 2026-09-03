@@ -1,11 +1,5 @@
 import bcrypt
 
-"""
-Slide 21 — Encriptación: passwords are never encrypted (reversible); they are
-hashed with an algorithm designed for it. bcrypt embeds a random salt in the
-returned hash, so hashing the same password twice yields two different hashes.
-"""
-
 
 def hash_password(plain_password: str) -> str:
     salt = bcrypt.gensalt()

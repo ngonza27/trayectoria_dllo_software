@@ -30,7 +30,6 @@ Si quieres analítica y session replay reales (opcional — todo funciona sin es
 
 ```bash
 POSTHOG_PROJECT_API_KEY=phc_...      # Project settings → Project API key (público, seguro de exponer al navegador)
-POSTHOG_PERSONAL_API_KEY=phx_...     # (tu avatar) → Personal API keys — SECRETO, solo se usa del lado del servidor
 ```
 
 ## Levantar la aplicación

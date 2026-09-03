@@ -9,7 +9,6 @@ def registrar_y_loguear(
     rol: str = "mesero",
     password: str = "Segura123!",
 ) -> tuple[str, dict]:
-    """Shared setup used by several integration tests: register, log in, return (token, profile)."""
     client.post(
         "/auth/registro",
         json={"restaurante": restaurante, "email": email, "password": password, "rol": rol},

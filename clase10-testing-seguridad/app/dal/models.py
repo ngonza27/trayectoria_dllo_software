@@ -11,8 +11,6 @@ def utcnow() -> datetime:
 
 
 class Restaurante(Base):
-    """One of the 3 locations of the "Fresh Fork" group used as this demo's tenants."""
-
     __tablename__ = "restaurantes"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -20,14 +18,12 @@ class Restaurante(Base):
 
 
 class Usuario(Base):
-    """Slide 9/12/13 — AuthN principal. `rol` drives AuthZ decisions."""
-
     __tablename__ = "usuarios"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
-    rol: Mapped[str] = mapped_column(String(20), default="mesero")  # "mesero" | "gerente"
+    rol: Mapped[str] = mapped_column(String(20), default="mesero")
     restaurante_id: Mapped[int] = mapped_column(ForeignKey("restaurantes.id"))
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
@@ -35,12 +31,6 @@ class Usuario(Base):
 
 
 class Reserva(Base):
-    """
-    Slide 22/23 — the exact table the RLS policy and masking view in
-    app/rls.sql target: `restaurante_id` is the RLS partition key, `telefono`
-    is the column the masked view hides.
-    """
-
     __tablename__ = "reservas"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -50,5 +40,5 @@ class Reserva(Base):
     fecha_hora: Mapped[datetime]
     num_personas: Mapped[int] = mapped_column(Integer)
     mesa_numero: Mapped[int] = mapped_column(Integer)
-    estado: Mapped[str] = mapped_column(String(20), default="pendiente")  # pendiente|confirmada|cancelada
+    estado: Mapped[str] = mapped_column(String(20), default="pendiente")
     created_at: Mapped[datetime] = mapped_column(default=utcnow)

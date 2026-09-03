@@ -109,15 +109,6 @@
     }
 
     async function cargarResumen() {
-      // BUG INTENCIONAL #2 (ver GUIA-DE-PRUEBAS.md): no se valida
-      // `response.ok` antes de leer el body. Cuando el restaurante todavía
-      // no tiene reservas, GET /reservas/resumen responde 500
-      // (ZeroDivisionError en el backend — ver app/routers/reservas.py), y
-      // ese 500 real (sin DEBUG) es texto plano ("Internal Server Error"),
-      // no JSON. `await response.json()` revienta con un SyntaxError no
-      // capturado, que PostHog (analytics.js, capture_exceptions) y
-      // Playwright (page.on("pageerror"), tests/e2e/test_reportes_de_errores.py)
-      // capturan cada uno a su manera.
       const response = await fetch("/reservas/resumen", { headers: authHeaders() });
       const resumen = await response.json();
       document.getElementById("promedio-personas").textContent = resumen.promedio_personas.toFixed(1);
@@ -139,7 +130,7 @@
       }
       event.target.reset();
       await cargarReservas();
-      cargarResumen(); // fire-and-forget: ver el bug intencional #2 arriba
+      cargarResumen();
     });
 
     document.getElementById("logout").addEventListener("click", (event) => {
@@ -151,11 +142,11 @@
     (async () => {
       const perfil = await cargarPerfil();
       if (!perfil) return;
-      identifyUsuario(perfil); // static/analytics.js — une el replay de PostHog con este usuario
+      identifyUsuario(perfil);
       document.getElementById("whoami").textContent = `${perfil.email} (${perfil.rol})`;
       document.getElementById("dashboard").hidden = false;
       await cargarReservas();
-      cargarResumen(); // fire-and-forget a propósito, ver el bug intencional #2 arriba
+      cargarResumen();
     })();
   </script>
 </body>

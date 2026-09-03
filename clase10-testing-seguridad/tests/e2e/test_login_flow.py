@@ -1,21 +1,3 @@
-"""
-Slide 9/10 — End-to-End with Playwright. This is the Python equivalent
-(pytest-playwright) of the exact JS/TS example on slide 10: navigate, fill
-#email/#password, click the submit button, assert a post-login element is
-visible. We use the Python API for consistency with the rest of this
-FastAPI/pytest stack; the underlying engine and semantics are identical.
-
-Requires a REAL running server and Postgres (this is the slowest, most
-expensive layer of the pyramid — slide 5) — see docs/security-architecture.md
-"Cómo correr cada capa de la pirámide" for the exact commands:
-
-    docker compose up -d
-    python -m app.init_db
-    uvicorn app.main:app --reload
-    playwright install chromium   # once
-    pytest tests/e2e --base-url=http://localhost:8000
-"""
-
 import uuid
 
 from playwright.sync_api import Page, expect
@@ -69,6 +51,4 @@ def test_un_usuario_puede_crear_una_reserva_desde_el_dashboard(page: Page):
     page.click('#crear-form button[type="submit"]')
 
     expect(page.locator("#reservas-body")).to_contain_text("Cliente E2E")
-    # This user registered without an explicit role, so the API defaults to
-    # "mesero" and the phone number comes back masked — slide 20/23.
     expect(page.locator("#reservas-body")).to_contain_text("*** *** 8877")

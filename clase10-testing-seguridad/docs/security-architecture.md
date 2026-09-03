@@ -21,9 +21,9 @@ graph LR
         JWTValidate["Valida JWT<br/>app/deps.py"]
     end
 
-    Backend["Backend FastAPI<br/>app/routers/auth.py, reservas.py"]
+    Backend["Backend FastAPI<br/>app/routes/, app/controllers/, app/services/auth_service.py, reservas_service.py"]
     DB[("PostgreSQL<br/>RLS + masking + bcrypt<br/>app/rls.sql")]
-    PostHog[("PostHog<br/>eventos + session replay<br/>static/analytics.js, app/analytics.py")]
+    PostHog[("PostHog<br/>eventos + session replay<br/>static/analytics.js, app/services/analytics_service.py")]
 
     Client -->|1. login| IdP
     IdP -->|2. emite JWT| Client
@@ -113,7 +113,7 @@ Two real bugs are left **unfixed on purpose** in this repo, specifically so a ru
 
 ### Bug intencional #1 — race condition, `POST /auth/registro`
 
-`app/routers/auth.py`'s get-or-create for `Restaurante` checks "does it exist?" then, in a separate statement, `INSERT`s it if not — a classic TOCTOU (time-of-check to time-of-use) gap. Two concurrent requests for a brand-new restaurant name can both observe "doesn't exist yet" before either commits, and the second `INSERT` violates the `UNIQUE` constraint on `restaurantes.nombre` with an uncaught `IntegrityError`, which Starlette turns into a real `500`.
+`app/services/auth_service.py`'s get-or-create for `Restaurante` checks "does it exist?" then, in a separate statement, `INSERT`s it if not — a classic TOCTOU (time-of-check to time-of-use) gap. Two concurrent requests for a brand-new restaurant name can both observe "doesn't exist yet" before either commits, and the second `INSERT` violates the `UNIQUE` constraint on `restaurantes.nombre` with an uncaught `IntegrityError`, which Starlette turns into a real `500`.
 
 `loadtest/locustfile.py` is built specifically to reproduce this: every simulated user registers under the *same* restaurant name (`"carga-comun"`), maximizing contention, and calls `response.failure(...)` explicitly when `/auth/registro` doesn't return `201` — so Locust's own **Failures** report and end-of-run summary table show it in red.
 
@@ -133,7 +133,7 @@ if restaurante is None:
 
 ### Bug intencional #2 — `ZeroDivisionError`, `GET /reservas/resumen`
 
-`app/routers/reservas.py`'s `resumen_reservas()` computes `total_personas / len(reservas)` without guarding the empty-list case — true for every restaurant right after it registers, since it has zero reservations. That's a real, uncaught `ZeroDivisionError` → `500`.
+`app/services/reservas_service.py`'s `resumen_reservas()` computes `total_personas / len(reservas)` without guarding the empty-list case — true for every restaurant right after it registers, since it has zero reservations. That's a real, uncaught `ZeroDivisionError` → `500`.
 
 `static/dashboard.html`'s `cargarResumen()` compounds it: it doesn't check `response.ok` before reading the body. Starlette's real `500` (no `DEBUG`) is plain text ("Internal Server Error"), not JSON — `await response.json()` throws an uncaught `SyntaxError` trying to parse it. The call site is fire-and-forget (no `await`), so it doesn't block the rest of the page, but the rejection is real and uncaught.
 
@@ -141,7 +141,7 @@ This single bug chain deliberately surfaces in three different tools' own report
 
 - **uvicorn/Starlette**: the raw Python traceback in the server's own logs, ending in `ZeroDivisionError: division by zero` — the most literal "see the library's report" of the three.
 - **pytest**: `tests/integration/test_reservas_crud.py::test_resumen_of_a_restaurante_with_no_reservas_hits_bug_intencional_2` documents it with `pytest.raises(ZeroDivisionError)` (FastAPI's `TestClient` re-raises unhandled server exceptions instead of turning them into a response, by default) — remove the `pytest.raises` and pytest's failure report shows the same traceback.
-- **Playwright + PostHog**: `tests/e2e/test_reportes_de_errores.py` listens on `page.on("pageerror", ...)` — Playwright surfaces uncaught page errors without any extra instrumentation — and, when `POSTHOG_PROJECT_API_KEY`/`POSTHOG_PERSONAL_API_KEY` are set, the same error is captured by PostHog's exception autocapture (`static/analytics.js`, `capture_exceptions: true`) as a `$exception` event, with a full session replay of the moment it happened.
+- **Playwright + PostHog**: `tests/e2e/test_reportes_de_errores.py` listens on `page.on("pageerror", ...)` — Playwright surfaces uncaught page errors without any extra instrumentation — and, when `POSTHOG_PROJECT_API_KEY` is set, the same error is captured by PostHog's exception autocapture (`static/analytics.js`, `capture_exceptions: true`) as a `$exception` event, with a full session replay of the moment it happened.
 
 The fix (not applied here, on purpose) is a one-line guard:
 
@@ -158,7 +158,7 @@ Direct mapping of slide 25's rubric to files in this repo:
 | Entregable de la rúbrica | Qué debes evidenciar | Dónde está aquí |
 |---|---|---|
 | Tests unitarios y de integración | Suite ejecutable, lógica de negocio + al menos una prueba de integración real | `tests/unit/` (17 tests) + `tests/integration/` (18 tests, Postgres real vía Testcontainers) |
-| PoC funcional (40%) | Login/registro funcionando, backend valida el JWT en cada request protegida | `app/routers/auth.py`, `app/deps.py`; demo con `static/login.html` |
+| PoC funcional (40%) | Login/registro funcionando, backend valida el JWT en cada request protegida | `app/routes/auth_routes.py`, `app/controllers/auth_controller.py`, `app/deps.py`; demo con `static/login.html` |
 | Calidad del código (20%) | AuthN + validación de tokens, sin credenciales hardcodeadas ni secretos en el repo | `app/config.py` (todo viene de env), `.env.example` (sin secretos reales), `.gitignore` |
 | Justificación / sustentación (25%) | Por qué eligieron su proveedor de identidad, cómo protegen datos sensibles | Esta sección + "Cognito y Azure AD" arriba + `app/rls.sql` (RLS/masking) + `app/security/passwords.py` (hashing) |
 | Sustentación individual (15%) | Cada integrante explica una prueba o mecanismo de seguridad con criterio propio | Usa [../GUIA-DE-PRUEBAS.md](../GUIA-DE-PRUEBAS.md) como guion — está organizada exactamente por tema para repartir |

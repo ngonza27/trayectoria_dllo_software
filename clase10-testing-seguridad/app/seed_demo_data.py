@@ -1,14 +1,5 @@
-"""
-Seeds the 3 "Fresh Fork Restaurant Group" locations this demo is built
-around, plus one gerente account per restaurant, so there's something to log
-into immediately without registering by hand. Safe to re-run — skips a
-restaurant/user that already exists.
-
-    python -m app.seed_demo_data
-"""
-
+from app.dal.models import Restaurante, Usuario
 from app.database import SessionLocal
-from app.models import Restaurante, Usuario
 from app.security.passwords import hash_password
 
 RESTAURANTES = ["fresh-fork-downtown", "fresh-fork-uptown", "fresh-fork-riverside"]

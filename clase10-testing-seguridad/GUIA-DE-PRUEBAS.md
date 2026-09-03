@@ -1,6 +1,6 @@
 # Guía de pruebas — Semana 10: Seguridad y Pruebas
 
-Un tema por sección, en el mismo orden que las slides. Cada uno dice **qué es**, **dónde está implementado en este repo**, y el **comando o pasos exactos** para verificarlo tú mismo. Usa esto como guion para la sustentación individual (slide 25: cada integrante explica, con criterio propio, la prueba o el mecanismo que implementó).
+Un tema por sección, en el mismo orden que las slides. Cada uno dice **qué es**, **dónde está implementado en este repo**, y el **comando o pasos exactos** para verificarlo tú mismo. Usa esto como guion para la sustentación individual.
 
 El dominio de esta demo: reservas de mesa para los **3 restaurantes** del grupo "Fresh Fork Restaurant Group" (`fresh-fork-downtown`, `fresh-fork-uptown`, `fresh-fork-riverside`) — cada restaurante es un tenant aislado por Row-Level Security (sección 19).
 
@@ -17,14 +17,14 @@ cp .env.example .env
 
 ## 0. Antes de empezar: por qué cada suite es un comando aparte
 
-`pytest` por sí solo (sin argumentos) corre **solo** `tests/unit` — así lo fija `pytest.ini`. Integración y E2E se invocan aparte (`pytest tests/integration`, `pytest tests/e2e --base-url=...`) por dos razones, no solo por costo/velocidad (slide 5):
+`pytest` por sí solo (sin argumentos) corre **solo** `tests/unit` — así lo fija `pytest.ini`. Integración y E2E se invocan aparte (`pytest tests/integration`, `pytest tests/e2e --base-url=...`) por dos razones, no solo por costo/velocidad:
 
 1. **Técnica**: los tests de integración fijan `DATABASE_URL` hacia un contenedor Postgres desechable *antes* de que nada importe `app.config`/`app.database` (ver el comentario al inicio de `tests/integration/conftest.py`). Si unit e integración corrieran en el mismo proceso, el orden de importación entre archivos podría romper eso silenciosamente.
 2. **Pedagógica**: coincide exactamente con la pirámide — la suite rápida corre todo el tiempo; las lentas y costosas se corren aparte, con su propio entorno.
 
 ---
 
-## 1. Por qué probamos el software (slide 4)
+## 1. Por qué probamos el software
 
 Sin código de producto propio que "romper", la evidencia aquí es la suite misma: pruebas automatizadas (17 unitarias + 18 de integración + 4 E2E) que documentan, en código ejecutable, exactamente qué debe hacer el sistema — **incluyendo dos casos donde documentan, a propósito, que algo está roto** (ver la sección "Bugs intencionales" al final). Corre todo y confirma:
 
@@ -33,7 +33,7 @@ pytest tests/unit -v          # 17 passed
 pytest tests/integration -v   # 18 passed (uno de ellos, el del Bug intencional #2, pasa demostrando el bug con pytest.raises — requiere Docker)
 ```
 
-## 2. La pirámide de pruebas (slide 5)
+## 2. La pirámide de pruebas
 
 | Capa | Dónde | Comando | Qué necesita |
 |---|---|---|---|
@@ -44,7 +44,7 @@ pytest tests/integration -v   # 18 passed (uno de ellos, el del Bug intencional 
 
 Nota cómo el conteo de pruebas baja mientras la infraestructura que necesitan sube — eso es la pirámide.
 
-## 3. Pruebas unitarias (slide 6)
+## 3. Pruebas unitarias
 
 **Dónde:** `tests/unit/test_passwords.py`, `test_jwt.py`, `test_rate_limit.py`, `test_masking.py`. Cada test sigue el patrón **Arrange-Act-Assert**, con los tres pasos comentados explícitamente.
 
@@ -54,29 +54,19 @@ pytest tests/unit -v
 
 `test_rate_limit.py` es el ejemplo más claro de "rápidas, deterministas, independientes": usa un reloj falso (`FakeClock`) inyectado en vez de `time.sleep()`, así que probar "el límite se resetea después de 10 segundos" toma microsegundos, no 10 segundos reales.
 
-## 4. Pruebas de integración (slide 7)
+## 4. Pruebas de integración
 
-**Dónde:** `tests/integration/`. `conftest.py` levanta un contenedor Postgres real y desechable con **Testcontainers** (exactamente la herramienta que menciona la slide), no un mock.
+**Dónde:** `tests/integration/`. `conftest.py` levanta un contenedor Postgres real y desechable con **Testcontainers**, no un mock.
 
 ```bash
 pytest tests/integration -v
 ```
 
-El ejemplo típico de la slide — "probar que POST /orders inserta el registro y responde 201" — es literalmente `test_post_reservas_inserts_a_row_and_responds_201` en `test_reservas_crud.py`.
+El ejemplo típico — "probar que POST /orders inserta el registro y responde 201" — es literalmente `test_post_reservas_inserts_a_row_and_responds_201` en `test_reservas_crud.py`.
 
-## 5. TDD: Desarrollo Guiado por Pruebas (slide 8)
+## 5-6. End-to-End con Playwright
 
-**Dónde:** `app/security/masking.py` + `tests/unit/test_masking.py`. Para practicar el ciclo tú mismo:
-
-1. **RED** — comenta el cuerpo de `enmascarar_telefono` (deja solo `pass`) y corre `pytest tests/unit/test_masking.py` → las 3 pruebas fallan.
-2. **GREEN** — escribe el mínimo código para que pasen, una por una.
-3. **REFACTOR** — con las 3 en verde, simplifica sin romperlas (por ejemplo, unifica los dos `return`).
-
-Detalle completo en [docs/security-architecture.md § TDD paso a paso](./docs/security-architecture.md#tdd-paso-a-paso).
-
-## 6-7. End-to-End con Playwright (slides 9-10)
-
-**Dónde:** `tests/e2e/test_login_flow.py` (flujo feliz) y `tests/e2e/test_reportes_de_errores.py` (el Bug intencional #2, ver más abajo), usando `pytest-playwright` (la API Python de Playwright — mismo motor que el ejemplo JS/TS de la slide, misma semántica: navega, llena campos por id, hace clic, verifica un elemento visible).
+**Dónde:** `tests/e2e/test_login_flow.py` (flujo feliz) y `tests/e2e/test_reportes_de_errores.py` (el Bug intencional #2, ver más abajo), usando `pytest-playwright` (la API Python de Playwright — mismo motor que el ejemplo JS/TS, misma semántica: navega, llena campos por id, hace clic, verifica un elemento visible).
 
 ```bash
 docker compose up -d && python -m app.init_db && python -m app.seed_demo_data
@@ -85,22 +75,17 @@ playwright install chromium   # una sola vez
 pytest tests/e2e --base-url=http://localhost:8000 -v --html=report.html --self-contained-html
 ```
 
-`static/login.html` reproduce el escenario exacto de la slide 10: campos `#email`/`#password`, botón `button[type="submit"]`, y un `#dashboard` que se hace visible tras el login. `--html=report.html` genera un reporte visual de la corrida (otra de las "librerías" cuyo reporte vale la pena ver, junto con Locust y PostHog más abajo).
+`static/login.html` reproduce el escenario: campos `#email`/`#password`, botón `button[type="submit"]`, y un `#dashboard` que se hace visible tras el login. `--html=report.html` genera un reporte visual de la corrida (otra de las "librerías" cuyo reporte vale la pena ver, junto con Locust y PostHog más abajo).
 
-## 8. PostHog: Analítica de Producto y Session Replay (slide 11)
+## 7. PostHog: Analítica de Producto y Session Replay
 
 **Dónde:**
-- Backend: `app/analytics.py` (`capture()`, llamado desde `app/routers/auth.py` — `registro`/`login` — y `app/routers/reservas.py` — `crear_reserva`).
+- Backend: `app/services/analytics_service.py` (`capture()`, llamado desde `app/services/auth_service.py` — `registrar`/`login` — y `app/services/reservas_service.py` — `crear_reserva`).
 - Frontend: `static/analytics.js`, incluido en cada página HTML. Inicializa `posthog-js` con la llave que expone `GET /public-config` (`app/main.py`) y activa `capture_exceptions: true` — autocaptura de errores no manejados y session replay.
 
-**Dos llaves, dos usos distintos — no las confundas:**
+**Una sola llave:** Project API key (`phc_...`), **pública** — vive en `.env` → `POSTHOG_PROJECT_API_KEY` y se sirve al navegador vía `GET /public-config`. Sirve para capturar eventos (server y cliente) y grabar session replay.
 
-| Llave | Tipo | Dónde vive | Para qué |
-|---|---|---|---|
-| Project API key (`phc_...`) | Pública | `.env` → `POSTHOG_PROJECT_API_KEY`; servida al navegador vía `GET /public-config` | Capturar eventos (server y cliente) y grabar session replay |
-| Personal API key (`phx_...`) | **Secreta**, solo lectura | `.env` → `POSTHOG_PERSONAL_API_KEY`; **nunca** sale del backend | Listar replays vía `GET /admin/analytics/session-recordings` (solo gerente), para verificar sin abrir el dashboard de PostHog |
-
-**Cómo probarlo sin cuenta de PostHog:** deja ambas llaves vacías en `.env` (el default) y observa el log al registrarte/loguearte/crear una reserva:
+**Cómo probarlo sin cuenta de PostHog:** deja la llave vacía en `.env` (el default) y observa el log al registrarte/loguearte/crear una reserva:
 
 ```bash
 uvicorn app.main:app --log-level info
@@ -108,16 +93,12 @@ uvicorn app.main:app --log-level info
 # verás: "posthog(no-op): event=registro distinct_id=1 properties=..."
 ```
 
-**Con una cuenta real de PostHog** (pon `POSTHOG_PROJECT_API_KEY` y `POSTHOG_PERSONAL_API_KEY` en `.env`):
+**Con una cuenta real de PostHog** (pon `POSTHOG_PROJECT_API_KEY` en `.env`, y activa **Record user sessions** en Settings → Recordings del proyecto):
 
 1. Levanta la app, abre `http://localhost:8000/login.html` en un navegador real (no en modo headless) y regístrate/loguéate — deberías ver la sesión aparecer en PostHog → **Activity** casi en tiempo real.
-2. Ve al dashboard: como el restaurante es nuevo, dispara el **Bug intencional #2** (abajo) — PostHog captura el `TypeError` como un evento `$exception` (**Error tracking**) y graba la sesión completa (**Session replay**), reproducible fotograma a fotograma con el error resaltado en el momento exacto en que ocurrió.
-3. Verifica desde la propia API, sin abrir el dashboard, con la llave personal:
-   ```bash
-   curl -s http://localhost:8000/admin/analytics/session-recordings -H "Authorization: Bearer $TOKEN_GERENTE" | jq
-   ```
+2. Ve al dashboard: como el restaurante es nuevo, dispara el **Bug intencional #2** (abajo) — PostHog captura el `TypeError` como un evento `$exception` (**Error tracking**) y graba la sesión completa (**Session replay**), reproducible fotograma a fotograma con el error resaltado en el momento exacto en que ocurrió, visible directamente en el dashboard de PostHog.
 
-## 9. Autenticación y Autorización (slide 12)
+## 8. Autenticación y Autorización
 
 **Dónde:** `app/deps.py`. `get_current_claims` (AuthN — decodifica y valida el JWT) es una dependencia distinta de `require_role(...)` (AuthZ — decide si ese usuario ya identificado puede hacer *esto*).
 
@@ -128,7 +109,7 @@ curl -i http://localhost:8000/reservas/1 -X DELETE -H "Authorization: Bearer $TO
 
 Pruebas automatizadas: `tests/integration/test_auth_flow.py::test_protected_endpoint_without_a_token_is_rejected` (AuthN) y `test_reservas_crud.py::test_only_gerente_can_cancel_a_reserva` (AuthZ).
 
-## 10-11. AWS Cognito / Azure AD (Entra ID) (slides 13-14)
+## 9-10. AWS Cognito / Azure AD (Entra ID)
 
 Este repo **no está conectado a un tenant real** (requeriría una cuenta AWS/Azure del estudiante) — lo que sí implementa es el código de validación real que consumiría uno, en `app/security/jwt.py`: cuando `AUTH_PROVIDER=cognito` o `AUTH_PROVIDER=azure`, `decode_and_validate_token()` descarga las llaves públicas del emisor (JWKS) y valida la firma RS256 contra ellas, en vez del secreto compartido HS256 que usa `AUTH_PROVIDER=local` (el modo por defecto, usado por toda la suite de pruebas de este repo).
 
@@ -143,11 +124,11 @@ COGNITO_USER_POOL_ID=us-east-1_XXXXXXXXX
 
 y usar el Hosted UI de Cognito (o el SDK) para que el frontend obtenga el JWT, en vez de `POST /auth/login`. Ver [docs/security-architecture.md § Cognito y Azure AD](./docs/security-architecture.md#cognito-y-azure-ad-cómo-conectar-un-tenant-real) para Azure AD y el detalle de qué cambia.
 
-## 12. Cognito vs. Azure AD (slide 15)
+## 11. Cognito vs. Azure AD
 
 Puramente comparativo — no hay código que probar aquí. Ver la tabla y cuándo usar cada uno en [docs/security-architecture.md](./docs/security-architecture.md#cognito-y-azure-ad-cómo-conectar-un-tenant-real).
 
-## 13. JWT: Estructura y Validación (slide 16)
+## 12. JWT: Estructura y Validación
 
 **Dónde:** `app/security/jwt.py` + `tests/unit/test_jwt.py` (6 pruebas: token válido, expirado, firma alterada, `iss`/`aud` incorrectos, y una que decodifica el payload sin la llave para demostrar que no está encriptado).
 
@@ -155,15 +136,15 @@ Puramente comparativo — no hay código que probar aquí. Ver la tabla y cuánd
 pytest tests/unit/test_jwt.py -v
 ```
 
-**Verlo con tus propios ojos:** loguéate, copia el `access_token`, y pégalo en <https://jwt.io> (sin la llave, jwt.io ya te muestra el payload — esa es exactamente la lección de la slide).
+**Verlo con tus propios ojos:** loguéate, copia el `access_token`, y pégalo en <https://jwt.io> (sin la llave, jwt.io ya te muestra el payload).
 
-## 14. Flujo de Autenticación con JWT (slide 17 de las slides — no confundir con la sección 17 de esta guía)
+## 13. Flujo de Autenticación con JWT
 
 Diagrama completo en [docs/security-architecture.md](./docs/security-architecture.md#arquitectura-de-seguridad-end-to-end). En este repo: `static/login.html` → `POST /auth/login` (emite JWT) → cada request subsiguiente pasa `Authorization: Bearer <token>` → `app/deps.py` lo valida antes de tocar la base de datos.
 
-## 15. OAuth 2.0: Flujos de Autorización (slide 18)
+## 14. OAuth 2.0: Flujos de Autorización
 
-**Dónde:** `app/routers/auth.py`. `POST /auth/login` es el análogo simplificado, educativo, del flujo **Authorization Code + PKCE** (una persona presenta credenciales, recibe tokens) — sin el redirect real ni el intercambio de código de un solo uso, que necesitan una página de login hospedada aparte (ver por qué en el docstring del endpoint). `POST /auth/token` implementa **Client Credentials** completo y real (servicio-a-servicio, sin humano):
+**Dónde:** `app/routes/auth_routes.py` y `app/services/auth_service.py`. `POST /auth/login` es el análogo simplificado, educativo, del flujo **Authorization Code + PKCE** (una persona presenta credenciales, recibe tokens) — sin el redirect real ni el intercambio de código de un solo uso, que necesitan una página de login hospedada aparte (ver por qué en el docstring del endpoint). `POST /auth/token` implementa **Client Credentials** completo y real (servicio-a-servicio, sin humano):
 
 ```bash
 curl -X POST http://localhost:8000/auth/token \
@@ -173,7 +154,7 @@ curl -X POST http://localhost:8000/auth/token \
 
 Pruebas: `tests/integration/test_auth_flow.py::test_client_credentials_grant_issues_a_service_token` y `..._rejects_a_wrong_secret`.
 
-## 16. Manejo Seguro de Credenciales (slide 19)
+## 15. Manejo Seguro de Credenciales
 
 **Dónde:** `app/config.py` (todo viene de variables de entorno, ningún valor hardcodeado en la lógica), `.env.example` (plantilla sin secretos reales), `.gitignore` (`.env` nunca se commitea).
 
@@ -185,11 +166,11 @@ grep -rn "password\|secret\|Segura123\|phc_\|phx_" app/ --include="*.py" | grep 
 # no debería devolver contraseñas ni llaves reales, solo nombres de campos/parámetros
 ```
 
-Esto aplica también a las llaves de PostHog de la sección 8: la project key se sirve desde el backend vía `/public-config` (nunca hardcodeada en `static/`), y la personal key jamás sale de `app/analytics.py`/`app/routers/admin.py`.
+Esto aplica también a las llaves de PostHog de la sección 8: la project key se sirve desde el backend vía `/public-config` (nunca hardcodeada en `static/`), y la personal key jamás sale de `app/services/analytics_service.py`/`app/controllers/admin_controller.py`.
 
 En producción, `.env` se reemplaza por AWS Secrets Manager / Parameter Store — no hay código de eso aquí porque es configuración de infraestructura, no de la aplicación (ver la arquitectura AWS de este mismo repo en `../docs/diagramas/arquitectura-aws.md`, que ya usa Secrets Manager para las credenciales de RDS).
 
-## 17. Rate Limiting (slide 20)
+## 16. Rate Limiting
 
 **Dónde:** `app/security/rate_limit.py` (lógica pura, ventana fija) + `app/main.py` (aplicado a `/auth/login`).
 
@@ -203,7 +184,7 @@ for i in $(seq 1 7); do curl -s -o /dev/null -w "%{http_code}\n" -X POST http://
 # los últimos deberían devolver 429
 ```
 
-## 18. Encriptación: En Tránsito y en Reposo (slide 21)
+## 17. Encriptación: En Tránsito y en Reposo
 
 **Contraseñas (lo único que este repo puede demostrar con código):** `app/security/passwords.py` usa bcrypt — nunca texto plano, nunca "encriptado" (irreversible por diseño).
 
@@ -213,9 +194,9 @@ pytest tests/unit/test_passwords.py -v
 
 **TLS y encriptación en reposo** son configuración de infraestructura (terminación TLS en el load balancer/CloudFront, `AWS KMS` en RDS/S3) — no hay nada que un `pytest` local pueda verificar; están documentadas, con ejemplo real, en `../docs/diagramas/arquitectura-aws.md` de este mismo repositorio (CloudFront + RDS del proyecto Fresh Fork).
 
-## 19. Row-Level Security en PostgreSQL (slide 22)
+## 18. Row-Level Security en PostgreSQL
 
-**Dónde:** `app/rls.sql` — la política es prácticamente copy-paste de la slide, adaptada a `reservas`/`restaurante_id`.
+**Dónde:** `app/rls.sql` — la política es prácticamente adaptada a `reservas`/`restaurante_id`.
 
 ```bash
 pytest tests/integration/test_reservas_crud.py::test_rls_blocks_cross_tenant_reads_even_with_no_where_clause_at_all -v
@@ -235,9 +216,9 @@ SELECT * FROM reservas;          -- ahora solo filas del restaurante 2, misma se
 
 Ver también [docs/security-architecture.md § El superusuario invisible](./docs/security-architecture.md#el-superusuario-invisible-un-hallazgo-real-de-este-repo) — un problema real que este repo encontró mientras escribía estas pruebas y que vale la pena entender.
 
-## 20. Column Masking (slide 23)
+## 19. Column Masking
 
-**Dos implementaciones, a propósito:** la vista SQL `reservas_enmascaradas` en `app/rls.sql` (idéntica a la slide) y la función pura `enmascarar_telefono` en `app/security/masking.py` (la misma regla, en Python, testeable sin base de datos) — aquí aplicada al teléfono del cliente en vez de un número de cuenta.
+**Dos implementaciones, a propósito:** la vista SQL `reservas_enmascaradas` en `app/rls.sql` y la función pura `enmascarar_telefono` en `app/security/masking.py` (la misma regla, en Python, testeable sin base de datos) — aquí aplicada al teléfono del cliente en vez de un número de cuenta.
 
 ```bash
 pytest tests/unit/test_masking.py -v                                    # la regla, aislada
@@ -252,15 +233,15 @@ curl -s http://localhost:8000/reservas -H "Authorization: Bearer $TOKEN_ROL_GERE
 # "+573001234567"
 ```
 
-## 21. Arquitectura de Seguridad End-to-End (slide 24)
+## 20. Arquitectura de Seguridad End-to-End
 
 Diagrama completo (equivalente a esta app) en [docs/security-architecture.md](./docs/security-architecture.md#arquitectura-de-seguridad-end-to-end).
 
-## 22. Qué Necesitas para Entrega 2 (slide 25)
+## 21. Qué Necesitas para Entrega 2
 
 Mapeo rúbrica → evidencia concreta en este repo: [docs/security-architecture.md § Rúbrica de Entrega 2](./docs/security-architecture.md#rúbrica-de-entrega-2--dónde-está-la-evidencia).
 
-## 23. Actividad: Demo de Seguridad de Datos y Autenticación (slide 26)
+## 22. Actividad: Demo de Seguridad de Datos y Autenticación
 
 La actividad pide: login con Cognito/Azure AD, generar y validar un JWT, y cubrirlo con al menos una prueba unitaria y una de integración. Este repo ya lo cumple con el proveedor local (JWT real, mismo formato que emitiría Cognito/Azure):
 
@@ -269,7 +250,7 @@ La actividad pide: login con Cognito/Azure AD, generar y validar un JWT, y cubri
 
 Para hacerlo con un proveedor real, sigue la sección 10-11 de esta guía y sustituye `POST /auth/login` por el Hosted UI de Cognito/Azure en `static/login.html`.
 
-## LOAD TESTS (slide 27)
+## LOAD TESTS
 
 **Dónde:** `loadtest/locustfile.py`.
 
@@ -289,7 +270,7 @@ Esta demo deja **dos bugs reales, sin corregir, a propósito** — no son errore
 
 ### Bug intencional #1 — condición de carrera en `POST /auth/registro`
 
-**Dónde:** `app/routers/auth.py`, el `get-or-create` de `Restaurante`. Si dos requests llegan casi al mismo tiempo pidiendo el mismo restaurante nuevo, ambos pueden ver "no existe todavía" y ambos intentan `INSERT`arlo — el segundo revienta con un `IntegrityError` de Postgres (violación de la restricción `UNIQUE` en `restaurantes.nombre`) que nadie captura, y Starlette lo convierte en un `500 Internal Server Error` real.
+**Dónde:** `app/services/auth_service.py`, el `get-or-create` de `Restaurante`. Si dos requests llegan casi al mismo tiempo pidiendo el mismo restaurante nuevo, ambos pueden ver "no existe todavía" y ambos intentan `INSERT`arlo — el segundo revienta con un `IntegrityError` de Postgres (violación de la restricción `UNIQUE` en `restaurantes.nombre`) que nadie captura, y Starlette lo convierte en un `500 Internal Server Error` real.
 
 **Cómo verlo — el reporte de Locust:**
 
@@ -306,7 +287,7 @@ locust -f loadtest/locustfile.py --host http://localhost:8000 \
 
 ### Bug intencional #2 — `ZeroDivisionError` en `GET /reservas/resumen`
 
-**Dónde:** `app/routers/reservas.py`, `resumen_reservas()`: calcula `total_personas / len(reservas)` sin comprobar que la lista no esté vacía. Un restaurante recién registrado no tiene reservas todavía, así que el endpoint revienta con un `ZeroDivisionError` real — un `500` sin capturar.
+**Dónde:** `app/services/reservas_service.py`, `resumen_reservas()`: calcula `total_personas / len(reservas)` sin comprobar que la lista no esté vacía. Un restaurante recién registrado no tiene reservas todavía, así que el endpoint revienta con un `ZeroDivisionError` real — un `500` sin capturar.
 
 **El frontend lo empeora a propósito:** `static/dashboard.html` → `cargarResumen()` no valida `response.ok` antes de leer el body. El `500` real de Starlette (sin `DEBUG`) es texto plano ("Internal Server Error"), no JSON — `await response.json()` revienta con un `SyntaxError` **no capturado** en el navegador al intentar parsearlo.
 

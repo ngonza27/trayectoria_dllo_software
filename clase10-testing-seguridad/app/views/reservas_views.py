@@ -1,35 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
-
-
-class RegistroRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=8)
-    restaurante: str
-    rol: str = "mesero"  # "mesero" | "gerente" — demo only; a real app would not let callers self-assign gerente
-
-
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
-
-class ClientCredentialsRequest(BaseModel):
-    client_id: str
-    client_secret: str
-
-
-class UsuarioOut(BaseModel):
-    id: int
-    email: str
-    rol: str
-    restaurante_id: int
+from pydantic import BaseModel, Field
 
 
 class ReservaCreate(BaseModel):
@@ -50,7 +21,7 @@ class ReservaOut(BaseModel):
     id: int
     restaurante_id: int
     cliente_nombre: str
-    telefono: str  # masked for non-gerente callers — see app/routers/reservas.py
+    telefono: str
     fecha_hora: datetime
     num_personas: int
     mesa_numero: int

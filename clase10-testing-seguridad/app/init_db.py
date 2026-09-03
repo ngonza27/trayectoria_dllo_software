@@ -1,15 +1,6 @@
-"""
-Run once to create the schema and apply the RLS policy + masking view:
-
-    python -m app.init_db
-
-Safe to re-run: table creation is skip-if-exists, and app/rls.sql uses
-DROP POLICY IF EXISTS / CREATE OR REPLACE VIEW so it is idempotent too.
-"""
-
 from pathlib import Path
 
-from app import models  # noqa: F401 — registers the models on Base.metadata
+from app.dal import models
 from app.database import Base, engine
 
 
