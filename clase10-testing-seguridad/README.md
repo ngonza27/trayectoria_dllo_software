@@ -20,10 +20,21 @@ FastAPI (Python) · SQLAlchemy · PostgreSQL (con Row-Level Security real) · py
 ```bash
 cd clase10-testing-seguridad
 python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium        # solo necesario para los tests E2E
 cp .env.example .env
+```
+
+**Windows (PowerShell):**
+
+```powershell
+cd clase10-testing-seguridad
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+playwright install chromium        # solo necesario para los tests E2E
+Copy-Item .env.example .env
 ```
 
 Si quieres analítica y session replay reales (opcional — todo funciona sin esto, ver sección 8 de la guía), agrega a tu `.env`:
@@ -49,6 +60,14 @@ curl -X POST http://localhost:8000/auth/registro \
   -d '{"restaurante":"fresh-fork-downtown","email":"demo@puy.com","password":"Segura123!","rol":"gerente"}'
 ```
 
+**Windows (PowerShell):** usa `curl.exe` explícito (no el alias `curl` de `Invoke-WebRequest`) y el backtick `` ` `` para continuar la línea:
+
+```powershell
+curl.exe -X POST http://localhost:8000/auth/registro `
+  -H "Content-Type: application/json" `
+  -d '{"restaurante":"fresh-fork-downtown","email":"demo@puy.com","password":"Segura123!","rol":"gerente"}'
+```
+
 ## Correr las pruebas
 
 Cada capa de la pirámide de pruebas (slide 5) es un comando separado — ver por qué en [GUIA-DE-PRUEBAS.md](./GUIA-DE-PRUEBAS.md#0-antes-de-empezar-por-qué-cada-suite-es-un-comando-aparte):
@@ -61,6 +80,18 @@ pytest tests/e2e --base-url=http://localhost:8000 --html=report.html --self-cont
 locust -f loadtest/locustfile.py --host http://localhost:8000  # carga, UI en :8089
 ```
 
+**Windows (PowerShell):** PowerShell no tiene un equivalente directo a `comando &`; abre `uvicorn` en su propia terminal en vez de mandarlo a segundo plano:
+
+```powershell
+pytest tests/unit                                          # rápidas, sin Docker
+pytest tests/integration                                   # necesita Docker corriendo
+uvicorn app.main:app   # servidor real, deja esta terminal corriendo
+
+# en OTRA terminal (con el venv activado):
+pytest tests/e2e --base-url=http://localhost:8000 --html=report.html --self-contained-html
+locust -f loadtest/locustfile.py --host http://localhost:8000  # carga, UI en :8089
+```
+
 `--html=report.html` (de `pytest-html`) genera un reporte visual con los resultados — uno de los "reportes generados por las librerías" que vale la pena ver, además de la salida de la terminal.
 
 ## Estructura
@@ -68,7 +99,11 @@ locust -f loadtest/locustfile.py --host http://localhost:8000  # carga, UI en :8
 ```
 app/                    código de la aplicación (FastAPI)
   security/             passwords, jwt, rate_limit, masking, oauth
-  routers/               auth.py, reservas.py, admin.py
+  routes/                auth_routes.py, reservas_routes.py — wiring de FastAPI, delegan a controllers/
+  controllers/            traducen excepciones de services/ a HTTPException
+  services/               lógica de negocio: auth_service.py, reservas_service.py, analytics_service.py
+  dal/                     data access layer — modelos SQLAlchemy y queries (usuario_dal.py, restaurante_dal.py, reserva_dal.py)
+  views/                   esquemas Pydantic de request/response (auth_views.py, reservas_views.py)
   rls.sql                 política de Row-Level Security + vista enmascarada (slides 22-23)
   seed_demo_data.py       crea los 3 restaurantes de la demo + un gerente por cada uno
 static/                 frontend mínimo (HTML/JS) — login, registro, dashboard CRUD, analytics.js (PostHog)

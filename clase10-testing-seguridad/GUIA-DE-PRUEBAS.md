@@ -13,6 +13,16 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
+**Windows (PowerShell):**
+
+```powershell
+cd clase10-testing-seguridad
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
 ---
 
 ## 0. Antes de empezar: por qué cada suite es un comando aparte
@@ -21,6 +31,21 @@ cp .env.example .env
 
 1. **Técnica**: los tests de integración fijan `DATABASE_URL` hacia un contenedor Postgres desechable *antes* de que nada importe `app.config`/`app.database` (ver el comentario al inicio de `tests/integration/conftest.py`). Si unit e integración corrieran en el mismo proceso, el orden de importación entre archivos podría romper eso silenciosamente.
 2. **Pedagógica**: coincide exactamente con la pirámide — la suite rápida corre todo el tiempo; las lentas y costosas se corren aparte, con su propio entorno.
+
+### Notas para Windows (PowerShell)
+
+Este repo se escribió pensando en bash/zsh (macOS/Linux). La alternativa más simple en Windows es correr todo dentro de **WSL2** o **Git Bash**, donde cada comando de esta guía funciona tal cual. Si prefieres PowerShell nativo, estos son los patrones que se repiten y su equivalente — de aquí en adelante, cada bloque no trivial trae su versión PowerShell al lado:
+
+| Patrón bash | Equivalente PowerShell |
+|---|---|
+| `source .venv/bin/activate` | `.venv\Scripts\Activate.ps1` |
+| `cmd1 && cmd2` | igual en PowerShell 7+; en Windows PowerShell 5.1, ejecuta cada uno en su propia línea |
+| `cmd &` (segundo plano) | más simple: abre una terminal nueva y corre el comando ahí |
+| `curl ...` | usa `curl.exe ...` explícito — `curl` a secas es un alias de `Invoke-WebRequest`, que no soporta `-s`/`-o`/`-w`/`-d` igual |
+| `... \| jq -r .campo` | instala `jq` (`winget install jqlang.jq`) — el pipe funciona igual — o usa `(... \| ConvertFrom-Json).campo` |
+| `for i in $(seq 1 7); do ...; done` | `1..7 \| ForEach-Object { ... }` |
+| `grep -rn "patrón" carpeta/` | `Select-String -Path carpeta\* -Pattern "patrón" -Recurse` |
+| línea terminada en `\` (continuación) | usa el backtick `` ` `` en PowerShell, o pon el comando en una sola línea |
 
 ---
 
@@ -75,6 +100,19 @@ playwright install chromium   # una sola vez
 pytest tests/e2e --base-url=http://localhost:8000 -v --html=report.html --self-contained-html
 ```
 
+**Windows (PowerShell):** corre `uvicorn` en una terminal separada en vez de usar `&`:
+
+```powershell
+docker compose up -d
+python -m app.init_db
+python -m app.seed_demo_data
+uvicorn app.main:app   # deja esta terminal corriendo
+
+# en OTRA terminal (con el venv activado):
+playwright install chromium   # una sola vez
+pytest tests/e2e --base-url=http://localhost:8000 -v --html=report.html --self-contained-html
+```
+
 `static/login.html` reproduce el escenario: campos `#email`/`#password`, botón `button[type="submit"]`, y un `#dashboard` que se hace visible tras el login. `--html=report.html` genera un reporte visual de la corrida (otra de las "librerías" cuyo reporte vale la pena ver, junto con Locust y PostHog más abajo).
 
 ## 7. PostHog: Analítica de Producto y Session Replay
@@ -105,6 +143,13 @@ uvicorn app.main:app --log-level info
 ```bash
 curl -i http://localhost:8000/auth/me                                    # 401 — ni siquiera hay identidad
 curl -i http://localhost:8000/reservas/1 -X DELETE -H "Authorization: Bearer $TOKEN_MESERO"  # 403 — identificado, pero sin permiso
+```
+
+**Windows (PowerShell):**
+
+```powershell
+curl.exe -i http://localhost:8000/auth/me                                    # 401 — ni siquiera hay identidad
+curl.exe -i http://localhost:8000/reservas/1 -X DELETE -H "Authorization: Bearer $env:TOKEN_MESERO"  # 403 — identificado, pero sin permiso
 ```
 
 Pruebas automatizadas: `tests/integration/test_auth_flow.py::test_protected_endpoint_without_a_token_is_rejected` (AuthN) y `test_reservas_crud.py::test_only_gerente_can_cancel_a_reserva` (AuthZ).
@@ -152,6 +197,14 @@ curl -X POST http://localhost:8000/auth/token \
   -d '{"client_id":"reporting-service","client_secret":"dev-only-client-secret"}'
 ```
 
+**Windows (PowerShell):**
+
+```powershell
+curl.exe -X POST http://localhost:8000/auth/token `
+  -H "Content-Type: application/json" `
+  -d '{"client_id":"reporting-service","client_secret":"dev-only-client-secret"}'
+```
+
 Pruebas: `tests/integration/test_auth_flow.py::test_client_credentials_grant_issues_a_service_token` y `..._rejects_a_wrong_secret`.
 
 ## 15. Manejo Seguro de Credenciales
@@ -166,7 +219,15 @@ grep -rn "password\|secret\|Segura123\|phc_\|phx_" app/ --include="*.py" | grep 
 # no debería devolver contraseñas ni llaves reales, solo nombres de campos/parámetros
 ```
 
-Esto aplica también a las llaves de PostHog de la sección 8: la project key se sirve desde el backend vía `/public-config` (nunca hardcodeada en `static/`), y la personal key jamás sale de `app/services/analytics_service.py`/`app/controllers/admin_controller.py`.
+**Windows (PowerShell):**
+
+```powershell
+git status              # .env no debe aparecer nunca aquí (está en .gitignore)
+Select-String -Path app\**\*.py -Pattern "password|secret|Segura123|phc_|phx_" | Where-Object { $_.Path -notmatch "app\\config\.py|app\\security" }
+# no debería devolver contraseñas ni llaves reales, solo nombres de campos/parámetros
+```
+
+Esto aplica también a la llave de PostHog de la sección 7: se sirve desde el backend vía `/public-config` (nunca hardcodeada en `static/`), y es la única llave que este repo maneja (pública, segura de exponer al navegador).
 
 En producción, `.env` se reemplaza por AWS Secrets Manager / Parameter Store — no hay código de eso aquí porque es configuración de infraestructura, no de la aplicación (ver la arquitectura AWS de este mismo repo en `../docs/diagramas/arquitectura-aws.md`, que ya usa Secrets Manager para las credenciales de RDS).
 
@@ -181,6 +242,16 @@ pytest tests/integration/test_rate_limit_integration.py -v   # el middleware com
 # o a mano, con el servidor corriendo (límite por defecto: 5/60s):
 for i in $(seq 1 7); do curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" -d '{"email":"x@x.com","password":"x"}'; done
+# los últimos deberían devolver 429
+```
+
+**Windows (PowerShell):**
+
+```powershell
+1..7 | ForEach-Object {
+  curl.exe -s -o NUL -w "%{http_code}`n" -X POST http://localhost:8000/auth/login `
+    -H "Content-Type: application/json" -d '{"email":"x@x.com","password":"x"}'
+}
 # los últimos deberían devolver 429
 ```
 
@@ -233,6 +304,15 @@ curl -s http://localhost:8000/reservas -H "Authorization: Bearer $TOKEN_ROL_GERE
 # "+573001234567"
 ```
 
+**Windows (PowerShell)** — sin `jq`, usando `ConvertFrom-Json`:
+
+```powershell
+(curl.exe -s http://localhost:8000/reservas -H "Authorization: Bearer $env:TOKEN_ROL_MESERO" | ConvertFrom-Json)[0].telefono
+# "*** *** 4567"
+(curl.exe -s http://localhost:8000/reservas -H "Authorization: Bearer $env:TOKEN_ROL_GERENTE" | ConvertFrom-Json)[0].telefono
+# "+573001234567"
+```
+
 ## 20. Arquitectura de Seguridad End-to-End
 
 Diagrama completo (equivalente a esta app) en [docs/security-architecture.md](./docs/security-architecture.md#arquitectura-de-seguridad-end-to-end).
@@ -260,6 +340,16 @@ locust -f loadtest/locustfile.py --host http://localhost:8000
 # abre http://localhost:8089, define usuarios y spawn rate, observa las estadísticas en vivo
 ```
 
+**Windows (PowerShell):** corre `uvicorn` en su propia terminal y `locust` en otra:
+
+```powershell
+uvicorn app.main:app   # deja esta terminal corriendo
+
+# en OTRA terminal:
+locust -f loadtest/locustfile.py --host http://localhost:8000
+# abre http://localhost:8089, define usuarios y spawn rate, observa las estadísticas en vivo
+```
+
 Ver la sección siguiente — este load test está diseñado a propósito para reproducir el Bug intencional #1.
 
 ---
@@ -278,6 +368,18 @@ Esta demo deja **dos bugs reales, sin corregir, a propósito** — no son errore
 docker compose up -d && python -m app.init_db
 uvicorn app.main:app &
 locust -f loadtest/locustfile.py --host http://localhost:8000 \
+    --users 30 --spawn-rate 30 --run-time 20s --headless
+```
+
+**Windows (PowerShell):**
+
+```powershell
+docker compose up -d
+python -m app.init_db
+uvicorn app.main:app   # deja esta terminal corriendo
+
+# en OTRA terminal:
+locust -f loadtest/locustfile.py --host http://localhost:8000 `
     --users 30 --spawn-rate 30 --run-time 20s --headless
 ```
 
@@ -305,8 +407,22 @@ locust -f loadtest/locustfile.py --host http://localhost:8000 \
    # 500 Internal Server Error — y en la terminal de uvicorn, un traceback completo
    # terminando en "ZeroDivisionError: division by zero"
    ```
+
+   **Windows (PowerShell):**
+   ```powershell
+   uvicorn app.main:app --reload   # deja esta terminal corriendo
+
+   # en OTRA terminal, crea un restaurante nuevo y pide su resumen sin haber creado ninguna reserva:
+   curl.exe -s -X POST http://localhost:8000/auth/registro -H "Content-Type: application/json" `
+     -d '{"restaurante":"demo-bug-2","email":"bug2@puy.com","password":"Segura123!"}' | Out-Null
+   $TOKEN = (curl.exe -s -X POST http://localhost:8000/auth/login -H "Content-Type: application/json" `
+     -d '{"email":"bug2@puy.com","password":"Segura123!"}' | ConvertFrom-Json).access_token
+   curl.exe -i http://localhost:8000/reservas/resumen -H "Authorization: Bearer $TOKEN"
+   # 500 Internal Server Error — y en la terminal de uvicorn, un traceback completo
+   # terminando en "ZeroDivisionError: division by zero"
+   ```
 2. **pytest**, documentando el bug tal como se dejó: `tests/integration/test_reservas_crud.py::test_resumen_of_a_restaurante_with_no_reservas_hits_bug_intencional_2` — quita el `pytest.raises(ZeroDivisionError)` de ese test y verás el mismo traceback, esta vez en el reporte de pytest.
-3. **Playwright + PostHog**, del lado del navegador: `tests/e2e/test_reportes_de_errores.py::test_dashboard_de_un_restaurante_nuevo_dispara_un_error_capturable_por_playwright` escucha `page.on("pageerror", ...)` — sin instrumentar nada más — y confirma que el `TypeError` ocurrió. Corre este mismo flujo con un navegador visible y `POSTHOG_PROJECT_API_KEY`/`POSTHOG_PERSONAL_API_KEY` configurados (sección 8) para ver el mismo error como un evento `$exception` en PostHog, con su session replay:
+3. **Playwright + PostHog**, del lado del navegador: `tests/e2e/test_reportes_de_errores.py::test_dashboard_de_un_restaurante_nuevo_dispara_un_error_capturable_por_playwright` escucha `page.on("pageerror", ...)` — sin instrumentar nada más — y confirma que el `TypeError` ocurrió. Corre este mismo flujo con un navegador visible y `POSTHOG_PROJECT_API_KEY` configurado (sección 7) para ver el mismo error como un evento `$exception` en PostHog, con su session replay:
    ```bash
    pytest tests/e2e/test_reportes_de_errores.py --base-url=http://localhost:8000 --headed -v
    ```
